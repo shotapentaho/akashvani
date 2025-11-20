@@ -163,7 +163,20 @@ with st.sidebar:
         index=1,
         help="Slow is recommended for seniors"
     )
-    
+       # Speech Duration (NEW!)
+    st.markdown("### ⏱️ Speech Duration")
+    duration_mode = st.radio(
+        "How long should the speech be?",
+        ["Short (1 min)", "Standard (1.5-2 min)", "Long (2-3 min)"],
+        index=1,
+        help="Longer summaries = more detailed news"
+    )    # Convert duration_mode to duration_key
+    duration_map = {
+        "Short (1 min)": "short",
+        "Standard (1.5-2 min)": "standard",
+        "Long (2-3 min)": "long"
+    }
+    duration_key = duration_map.get(duration_mode, "standard") 
     # AI Summary
     use_ai_summary = st.checkbox(
         "✓ AI Summary (Senior-Friendly)",
