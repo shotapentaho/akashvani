@@ -2,7 +2,7 @@
 """
 akashvani - Text-to-Speech Utilities
 Using gTTS for audio generation in supported Indian languages
-Fixed: Language support detection
+Fixed: Language support detection and duration calculation
 """
 
 from gtts import gTTS
@@ -35,6 +35,23 @@ def get_supported_languages_list() -> dict:
     """
     return SUPPORTED_TTS_LANGS
 
+def calculate_speech_duration(text: str, slow: bool = False) -> float:
+    """
+    Calculate approximate speech duration in seconds
+    
+    Args:
+        text: Text to speak
+        slow: If True, slower speech (~120 wpm), else normal (~150 wpm)
+    
+    Returns:
+        Duration in seconds (approximate)
+    """
+    word_count = len(text.split())
+    words_per_minute = 120 if slow else 150
+    minutes = word_count / words_per_minute
+    seconds = minutes * 60
+    return seconds
+
 def text_to_speech(
     text: str,
     language_code: str = "en",
@@ -62,11 +79,24 @@ def text_to_speech(
             st.info("📝 You can still read the text summary above. Consider translating to a supported language like English or Hindi.")
             return None
         
+        # Calculate estimated duration
+        estimated_duration = calculate_speech_duration(text, slow)
+        word_count = len(text.split())
+        
+        # Show duration estimate
+        minutes = int(estimated_duration // 60)
+        seconds = int(estimated_duration % 60)
+        st.info(f"🎵 Generating audio... ({word_count} words ≈ {minutes}m {seconds}s at {'Slow' if slow else 'Normal'} speed)")
+        
         # gTTS handles language codes automatically
         tts = gTTS(text, lang=language_code, slow=slow)
         mp3_fp = BytesIO()
         tts.write_to_fp(mp3_fp)
         mp3_fp.seek(0)
+        
+        # Show success message with actual duration
+        st.success(f"✅ Audio ready! Duration: ~{minutes}m {seconds}s")
+        
         return mp3_fp
     
     except ValueError as e:
