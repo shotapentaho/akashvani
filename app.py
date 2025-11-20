@@ -2,8 +2,10 @@
 """
 akashvani - Senior-Friendly News-to-Speech Application
 Listen to news in 12 Indian languages with AI summaries
-Project: akashvani | Version 1.0 | 2025-11-19 16:42:48 UTC
-Fixed for OpenAI v1.0+ API, safe null handling, and gTTS language support
+Project: akashvani | Version 1.0 | 2025-11-20 13:30:43 UTC
+Fixed for OpenAI v1.0+ API, safe null handling, gTTS language support, and 2-3 min speech mode
+Author: CX Data & Analytics
+Live Demo: https://akashvani.cxloop.co
 """
 
 import streamlit as st
@@ -43,7 +45,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        "About": "akashvani: News-to-Speech App for Senior Citizens | 12 Indian Languages | Version 1.0"
+        "About": "akashvani: News-to-Speech App for Senior Citizens | 12 Indian Languages | Version 1.0 | Author: shotapentaho"
     }
 )
 
@@ -101,6 +103,15 @@ st.markdown("""
         color: #155724;
     }
     
+    .duration-info {
+        background-color: #FFF9C4;
+        padding: 10px;
+        border-radius: 8px;
+        border-left: 4px solid #FBC02D;
+        font-size: 14px;
+        margin: 10px 0;
+    }
+    
     .article-container {
         background-color: white;
         padding: 15px;
@@ -114,6 +125,8 @@ st.markdown("""
 # ===== SESSION STATE =====
 if 'last_language' not in st.session_state:
     st.session_state.last_language = "English"
+if 'last_duration' not in st.session_state:
+    st.session_state.last_duration = "standard"
 
 # ===== HEADER =====
 col1, col2 = st.columns([4, 1])
@@ -159,29 +172,41 @@ with st.sidebar:
     st.markdown("### 🎤 Speech Options")
     speech_speed = st.radio(
         "Speech Speed:",
-        ["Normal", "Slow"],
+        ["Normal ⚡", "Slow 🐢"],
         index=1,
-        help="Slow is recommended for seniors"
+        help="Slow is recommended for seniors (easier to follow)"
     )
-       # Speech Duration (NEW!)
+    
+    # Speech Duration (NEW!)
     st.markdown("### ⏱️ Speech Duration")
     duration_mode = st.radio(
         "How long should the speech be?",
-        ["Short (1 min)", "Standard (1.5-2 min)", "Long (2-3 min)"],
+        ["Short (1 min)", "Standard (2 min)", "Long (3 min)"],
         index=1,
-        help="Longer summaries = more detailed news"
-    )    # Convert duration_mode to duration_key
+        help="Longer summaries = more detailed news coverage"
+    )
+    
+    # Display duration info with updated targets
+    duration_info_map = {
+        "Short (1 min)": "📝 150 words - Quick briefing",
+        "Standard (2 min)": "📝 300 words - Recommended",
+        "Long (3 min)": "📝 450 words - Deep dive"
+    }
+    st.markdown(f"<div class='duration-info'>{duration_info_map.get(duration_mode, '')}</div>", unsafe_allow_html=True)
+    
+    # Convert duration_mode to duration_key
     duration_map = {
         "Short (1 min)": "short",
-        "Standard (1.5-2 min)": "standard",
-        "Long (2-3 min)": "long"
+        "Standard (2 min)": "standard",
+        "Long (3 min)": "long"
     }
-    duration_key = duration_map.get(duration_mode, "standard") 
+    duration_key = duration_map.get(duration_mode, "standard")
+    
     # AI Summary
     use_ai_summary = st.checkbox(
         "✓ AI Summary (Senior-Friendly)",
         value=True,
-        help="AI will simplify complex news"
+        help="AI will simplify complex news into easy-to-understand language"
     )
     
     st.markdown("---")
@@ -191,15 +216,24 @@ with st.sidebar:
     results_count = st.slider(
         "Number of Articles:",
         1, 10, 5,
-        help="How many articles to fetch"
+        help="How many news articles to fetch"
     )
     
     st.markdown("---")
     st.markdown("### 💡 Tips for Best Experience")
     st.caption("✓ Use 'Slow' speech speed for clarity")
+    st.caption("✓ Use 'Long' duration for detailed news")
     st.caption("✓ Enable AI Summary for easy understanding")
     st.caption("✓ Use headphones for better sound")
     st.caption("✓ Increase device volume appropriately")
+    
+    st.markdown("---")
+    st.markdown("### ℹ️ About akashvani")
+    st.caption("📻 Senior-friendly news reader")
+    st.caption("🌍 12 Indian languages")
+    st.caption("🤖 AI-powered summaries")
+    st.caption("🔊 Natural speech output")
+    st.caption("© 2025 CX Data & Analytics LLC")
 
 # ===== MAIN QUERY INPUT =====
 st.header("🔍 Search for News")
@@ -209,7 +243,7 @@ col1, col2, col3 = st.columns([3, 1, 1])
 with col1:
     query = st.text_input(
         "What news are you interested in?",
-        placeholder="e.g., Elections, Stock Market, Cricket, Health, Weather...",
+        placeholder="e.g., Elections, Stock Market, Cricket, Health, Weather, Technology...",
         help="Type a topic you want to read about"
     )
 
@@ -224,29 +258,30 @@ if help_button:
         st.markdown("""
         **akashvani** is a news reader designed for senior citizens to listen to news in their preferred language.
         
-        **Step 1:** Choose your preferred language from the left menu
+        ### **Step-by-Step Guide:**
         
-        **Step 2:** Select speech speed (Slow recommended for clarity)
+        **Step 1:** Choose your preferred language from the left menu  
+        **Step 2:** Select speech speed (Slow 🐢 recommended for clarity)  
+        **Step 3:** Select speech duration (how long you want to listen)  
+        **Step 4:** Optionally enable AI Summary for simpler explanations  
+        **Step 5:** Type a news topic you're interested in  
+        **Step 6:** Click 'Search' button to fetch articles  
+        **Step 7:** Click on any article to expand and read  
+        **Step 8:** Listen to the article in your language by clicking play  
         
-        **Step 3:** Optionally enable AI Summary for simpler explanations
+        ### **💡 Tips for Best Experience:**
+        - 🐢 Use **Slow** speech speed for better understanding
+        - ⏱️ Use **Long** duration (3 min) for detailed news
+        - ✅ Enable **AI Summary** for simpler language
+        - 🔉 Use **headphones** for better sound quality
+        - 📱 Increase **device volume** to comfortable level
+        - 🔊 Play in **quiet environment** for best listening
         
-        **Step 4:** Type a news topic you're interested in
+        ### **🌍 Supported Languages:**
+        English, Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Urdu, Odia
         
-        **Step 5:** Click 'Search' button to fetch articles
-        
-        **Step 6:** Click on any article to expand and read
-        
-        **Step 7:** Listen to the article in your language by clicking play (if available)
-        
-        **💡 Tips for Best Experience:**
-        - 🐢 Use Slow speech speed for better understanding
-        - ✅ Enable AI Summary for simpler language
-        - 🔉 Use headphones for better sound quality
-        - 📱 Increase device volume to comfortable level
-        
-        **🌍 Supported Languages:** English, Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Urdu, Odia
-        
-        **Note:** Some languages have text-only mode (no audio). Select a language with voice support for audio narration.
+        ### **📝 Note:**
+        Some languages have text-only mode (no audio). Select a language with voice support for audio narration.
         """)
 
 # ===== PROCESS AND DISPLAY =====
@@ -260,7 +295,13 @@ if search_button:
         
         if not articles:
             st.error("❌ No news found for your query. Try a different topic!")
-            st.info("💡 Try searching for: Elections, Sports, Business, Weather, Health, Technology, India, Cricket")
+            st.info("""
+            💡 **Try searching for popular topics:**
+            - Elections, Sports, Cricket, Football
+            - Business, Stock Market, Technology
+            - Weather, Health, Science
+            - India, India news, Breaking news
+            """)
         else:
             st.markdown(f"<div class='success-box'>✅ Found {len(articles)} articles for '{query}'</div>", unsafe_allow_html=True)
             st.markdown("---")
@@ -269,7 +310,7 @@ if search_button:
             tts_available = is_language_supported(language_code)
             
             if not tts_available:
-                st.info(f"📝 Text-only mode: Voice narration is not available for {selected_language}. You can read the summaries below.")
+                st.info(f"📝 **Text-only mode:** Voice narration is not available for {selected_language}. You can read the summaries below.")
             
             # Display each article
             for idx, article in enumerate(articles, 1):
@@ -303,9 +344,9 @@ if search_button:
                     
                     # Get AI Summary and prepare content
                     if use_ai_summary:
-                        with st.spinner(f"🤖 Creating summary in {selected_language}..."):
-                            # Pass client to translator function
-                            summary = get_ai_summary(article_content, language_code, client)
+                        with st.spinner(f"🤖 Creating {duration_mode.lower()} summary in {selected_language}..."):
+                            # Pass client AND duration_key to translator function
+                            summary = get_ai_summary(article_content, language_code, client, duration_key)
                         
                         st.write("**📝 Summary (Simplified for You):**")
                         st.info(summary)
@@ -334,7 +375,7 @@ if search_button:
                         col1, col2, col3 = st.columns([3, 1, 1])
                         
                         with col1:
-                            slow_mode = speech_speed == "Slow"
+                            slow_mode = speech_speed == "Slow 🐢"
                             audio = text_to_speech(audio_content, language_code, slow=slow_mode)
                             
                             if audio:
@@ -359,7 +400,7 @@ if search_button:
                     # Link to Full Article
                     article_url = formatted_article.get('url') or "#"
                     if article_url != "#":
-                        st.markdown(f"[🔗 Read Full Article on Source Website]({article_url})")
+                        st.markdown(f"**[🔗 Read Full Article on Source Website]({article_url})**")
 
 # ===== FOOTER =====
 st.markdown("---")
@@ -375,4 +416,9 @@ with footer_col4:
     st.caption("🔊 Voice Available")
 
 st.caption("---")
-st.caption("✨ akashvani v1.0 | 12 Indian Languages | Powered by Streamlit, OpenAI, gTTS & NewsAPI | Updated: 2025-11-19 16:42:48 UTC")
+st.caption("""
+✨ **akashvani v1.0** | 12 Indian Languages | 1-3 Min Speech Duration  
+🏗️ Built with Streamlit, OpenAI, gTTS & NewsAPI  
+📅 Updated: 2025-11-20 13:30:43 UTC  
+❤️ Built with love for accessibility | 🔗 Live: https://akashvani.cxloop.co
+""")
