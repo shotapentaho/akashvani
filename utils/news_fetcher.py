@@ -4,7 +4,7 @@ akashvani - News Fetching Utilities
 Full, self-contained news_fetcher with:
 - Robust handling of malformed API responses (articles as strings/non-dicts)
 - Retries/backoff for network resilience
-- Curated Indian domains + BBC included
+- Curated international domains (includes Indian + global, BBC etc.)
 - Two-step search (qInTitle then q)
 - Query-derived token extraction (no hard-coded country alias lists)
 - Boosting / optional requiring of query-token matches
@@ -19,9 +19,9 @@ from urllib3.util import Retry
 from datetime import datetime
 import re
 
-# Curated list of popular Indian news domains (used with NewsAPI 'domains' param).
-# BBC domains included per request.
-INDIAN_DOMAINS = [
+# Curated list of international news domains (includes major Indian outlets + global sources).
+INTERNATIONAL_DOMAINS = [
+    # Major Indian outlets
     "timesofindia.indiatimes.com",
     "thehindu.com",
     "indianexpress.com",
@@ -41,6 +41,21 @@ INDIAN_DOMAINS = [
     # BBC
     "bbc.co.uk",
     "bbc.com",
+    # Other international sources
+    "reuters.com",
+    "apnews.com",
+    "cnn.com",
+    "nytimes.com",
+    "theguardian.com",
+    "aljazeera.com",
+    "washingtonpost.com",
+    "bloomberg.com",
+    "financialtimes.com",
+    "ft.com",
+    "axios.com",
+    "thetimes.co.uk",
+    "theglobeandmail.com",
+    "smh.com.au",
 ]
 
 def _requests_session_with_retries(
@@ -279,7 +294,7 @@ def get_top_news(
     query: str,
     api_key: str,
     top_k: int = 5,
-    use_indian_domains: bool = True,
+    use_international_domains: bool = True,
     require_query_match: bool = False,
 ) -> List[Dict]:
     """
@@ -290,7 +305,7 @@ def get_top_news(
     - Performs a qInTitle search first, then a broader q search if needed.
     - Uses the user's raw query tokens (phrase + words) to boost or optionally require matches
       in the returned articles. No hard-coded country alias lists are used.
-    - Optionally restricts sources to a curated Indian domain list (includes BBC domains as requested).
+    - Optionally restricts sources to a curated international domain list (includes BBC).
     - Deduplicates, formats, scores, sorts, and returns top_k results.
     """
     if not query or not api_key:
@@ -304,8 +319,8 @@ def get_top_news(
     # Derive tokens directly from the user's query (phrase + word tokens)
     query_tokens = _extract_search_tokens(query)
 
-    # Domain parameter (None if not restricting to Indian domains)
-    domains_param = ",".join(INDIAN_DOMAINS) if use_indian_domains else None
+    # Domain parameter (None if not restricting to international domains)
+    domains_param = ",".join(INTERNATIONAL_DOMAINS) if use_international_domains else None
 
     def _fetch(params: Dict) -> List[Any]:
         try:
