@@ -38,6 +38,8 @@ INTERNATIONAL_DOMAINS = [
     "business-standard.com",
     "firstpost.com",
     "outlookindia.com",
+    #Cricket
+    "espncricinfo.com",
     # BBC
     "bbc.co.uk",
     "bbc.com",
