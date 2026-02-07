@@ -10,14 +10,16 @@ Full, self-contained news_fetcher with:
 - Boosting / optional requiring of query-token matches
 - Deduplication, simple relevance scoring, safe date parsing
 - Streamlit caching (st.cache_data)
-"""
-from typing import List, Dict, Optional, Any, Iterable
-import requests
-import streamlit as st
-from requests.adapters import HTTPAdapter
-from urllib3.util import Retry
-from datetime import datetime
-import re
+- DATE FILTERING: Only fetches articles from last 2 days
+- IMPROVED DATE DISPLAY: Never shows "N/A"
+"""  
+from typing import List, Dict, Optional, Any, Iterable  
+import requests  
+import streamlit as st  
+from requests.adapters import HTTPAdapter  
+from urllib3.util import Retry  
+from datetime import datetime, timedelta  
+import re  
 
 # Curated list of international news domains (includes major Indian outlets + global sources).
 INTERNATIONAL_DOMAINS = [
@@ -82,18 +84,55 @@ def _requests_session_with_retries(
 
 def _safe_date(iso_str: Optional[str]) -> str:
     """
-    Parse publishedAt returned by NewsAPI to YYYY-MM-DD, safely.
+    Parse publishedAt returned by NewsAPI to readable format, safely.
+    Returns format: "Jan 15, 2026" instead of "N/A".
     """
     if not iso_str:
-        return "N/A"
+        # Return today's date as fallback instead of N/A
+        return datetime.utcnow().strftime("%b %d, %Y")  
+        
     try:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d")
+        # Return more readable format: "Jan 15, 2026"
+        return dt.strftime("%b %d, %Y")
     except Exception:
+        # Try to extract just the date part
         m = re.match(r"(\d{4}-\d{2}-\d{2})", iso_str)
         if m:
-            return m.group(1)
-        return iso_str[:10] if isinstance(iso_str, str) else "N/A"
+            try:
+                dt = datetime.strptime(m.group(1), "%Y-%m-%d")
+                return dt.strftime("%b %d, %Y")
+            except:
+                return m.group(1)
+        # Last resort: return today's date
+        return datetime.utcnow().strftime("%b %d, %Y")
+
+def _relative_time(iso_str: Optional[str]) -> str:
+    """
+    Convert ISO timestamp to relative time like '2 hours ago' or 'Yesterday'
+    """
+    if not iso_str:
+        return "Recently"  
+        
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        now = datetime.utcnow().replace(tzinfo=dt.tzinfo)
+        diff = now - dt
+        
+        if diff.days == 0:
+            hours = diff.seconds // 3600
+            if hours == 0:
+                mins = diff.seconds // 60
+                return f"{mins} min ago" if mins > 0 else "Just now"
+            return f"{hours} hour{'s' if hours > 1 else ''} ago"
+        elif diff.days == 1:
+            return "Yesterday"
+        elif diff.days < 7:
+            return f"{diff.days} days ago"
+        else:
+            return dt.strftime("%b %d, %Y")
+    except:
+        return "Recently"
 
 def format_article(article: Any) -> Dict:
     """
@@ -115,11 +154,11 @@ def format_article(article: Any) -> Dict:
             "description": "",
             "content": "",
             "source": "Unknown Source",
-            "published_at": "N/A",
+            "published_at": datetime.utcnow().strftime("%b %d, %Y"),
             "author": "Unknown Author",
             "url": s if is_url else "#",
             "image": "",
-            "_raw_published_at": "",
+            "_raw_published_at": datetime.utcnow().isoformat(),
         }
 
     if not isinstance(article, dict):
@@ -130,11 +169,11 @@ def format_article(article: Any) -> Dict:
             "description": "",
             "content": "",
             "source": "Unknown Source",
-            "published_at": "N/A",
+            "published_at": datetime.utcnow().strftime("%b %d, %Y"),
             "author": "Unknown Author",
             "url": "#",
             "image": "",
-            "_raw_published_at": "",
+            "_raw_published_at": datetime.utcnow().isoformat(),
         }
 
     # Handle source field being either dict or str
@@ -155,7 +194,7 @@ def format_article(article: Any) -> Dict:
         "author": article.get("author") or "Unknown Author",
         "url": article.get("url") or "#",
         "image": article.get("urlToImage") or "",
-        "_raw_published_at": article.get("publishedAt") or "",
+        "_raw_published_at": article.get("publishedAt") or datetime.utcnow().isoformat(),
     }
 
 def _score_article(formatted: Dict, query: str) -> float:
@@ -309,6 +348,7 @@ def get_top_news(
       in the returned articles. No hard-coded country alias lists are used.
     - Optionally restricts sources to a curated international domain list (includes BBC).
     - Deduplicates, formats, scores, sorts, and returns top_k results.
+    - ONLY FETCHES ARTICLES FROM LAST 2 DAYS
     """
     if not query or not api_key:
         st.error("❌ Missing query or API key for NewsAPI")
@@ -317,6 +357,9 @@ def get_top_news(
     session = _requests_session_with_retries()
     base_url = "https://newsapi.org/v2/everything"
     headers = {"Authorization": api_key}
+
+    # Calculate date 2 days ago for filtering
+    two_days_ago = (datetime.utcnow() - timedelta(days=2)).strftime('%Y-%m-%d')
 
     # Derive tokens directly from the user's query (phrase + word tokens)
     query_tokens = _extract_search_tokens(query)
@@ -355,7 +398,8 @@ def get_top_news(
         "qInTitle": query,
         "pageSize": max(top_k, 10),
         "language": "en",
-        "sortBy": "relevancy",
+        "sortBy": "publishedAt",  # Changed from "relevancy" to get latest first
+        "from": two_days_ago,      # NEW: Only get articles from last 2 days
     }
     if domains_param:
         params_title_search["domains"] = domains_param
@@ -368,7 +412,8 @@ def get_top_news(
             "q": query,
             "pageSize": max(top_k * 3, 20),
             "language": "en",
-            "sortBy": "relevancy",
+            "sortBy": "publishedAt",  # Changed from "relevancy"
+            "from": two_days_ago,      # NEW: Only get articles from last 2 days
         }
         if domains_param:
             params_broad_search["domains"] = domains_param
@@ -379,7 +424,7 @@ def get_top_news(
         combined = articles
 
     if not combined:
-        st.warning(f"⚠️ No articles found for '{query}'")
+        st.warning(f"⚠️ No articles found for '{query}' in the last 2 days")
         return []
 
     # Deduplicate raw results
@@ -404,7 +449,7 @@ def get_top_news(
         result.append(cleaned)
 
     if len(result) == 0:
-        st.warning(f"⚠️ No relevant articles after filtering for '{query}'")
+        st.warning(f"⚠️ No relevant articles after filtering for '{query}' in the last 2 days")
 
     return result
 
