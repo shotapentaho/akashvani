@@ -680,14 +680,11 @@ with f4:
 
 st.caption("---")
 st.caption("""
-✨ Akashvani v1.3 from CX Data & Analytics LLC
-🗣️ 12 Indian languages · 1–3 min audio briefs · 🏏 Cricket scores from news
+✨ Akashvani v1.3 CX Data & Analytics LLC
+🗣️ 12 Indian languages · 1–3 min audio briefs
 🔄 Dual API: NewsAPI + GNews (200 requests/day total)
-⚡ Optimized: GPT-3.5-turbo-0125 with smart caching (91% cost reduction)
-📊 Analytics: PostgreSQL insert-only tracking for real-time insights
 🏗️ Streamlit + OpenAI + gTTS + NewsAPI + GNews + PostgreSQL
 ❤️  Crafted with accessibility in mind, delivering trusted news from reputable sources worldwide.
-📧 Support: support@cxloop.co
 """)
 
 # ---------- Footer with Privacy Policy Link ----------
