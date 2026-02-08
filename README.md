@@ -63,3 +63,34 @@
 ---
 
 ## 🏗️ Architecture
+
+### 📁 **Project Structure**
+
+
+akashvani/
+├── app.py                      # Main application (user interface)
+├── pages/
+│   └── admin.py               # Admin dashboard (password protected)
+├── config/
+│   └── languages.py           # Language configurations and mappings
+├── utils/
+│   ├── news_fetcher.py        # NewsAPI integration with fallback
+│   ├── gnews_fetcher.py       # GNews API fallback handler
+│   ├── cricket_scraper.py     # Cricket score extraction
+│   ├── translator.py          # OpenAI translation utilities
+│   └── tts_handler.py         # Text-to-speech with gTTS
+├── .streamlit/
+│   └── secrets.toml           # API keys and secrets (not in repo)
+├── requirements.txt           # Python dependencies
+├── privacy-policy.md          # Privacy policy document
+└── README.md                  # This file
+
+### **Rate Limit Strategy**
+
+User Request
+    ↓
+Try NewsAPI (100/day)
+    ↓ (if 429 error)
+Try GNews (100/day)
+    ↓ (if both fail)
+Show user-friendly error
