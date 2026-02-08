@@ -94,3 +94,22 @@ Try NewsAPI (100/day)
 Try GNews (100/day)
     ↓ (if both fail)
 Show user-friendly error
+
+### **Support & Contact**
+### **Get Help**
+- 📧 Email: support@cxloop.co
+- 🐛 Issues: GitHub Issues
+- 💬 Discussions: GitHub Discussions
+
+### **Credits**
+- Author: CX Data & Analytics LLC
+- Contributors: [List of contributors]
+- Libraries: Streamlit, OpenAI, gTTS, NewsAPI, GNews
+
+### 🙏 Acknowledgments
+- Streamlit for the amazing framework
+- OpenAI for GPT-3.5 API
+- NewsAPI for reliable news data
+- GNews for backup news source
+- gTTS for text-to-speech capabilities
+- Senior citizens community for valuable feedback
