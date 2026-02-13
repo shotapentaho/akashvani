@@ -2,7 +2,7 @@
 """
 akashvani - Text-to-Speech Utilities
 Using gTTS for audio generation in supported Indian languages
-Fixed: Language support detection and duration calculation
+Version: 1.4 | 2026-02-13
 """
 
 from gtts import gTTS
@@ -88,13 +88,13 @@ def text_to_speech(
         seconds = int(estimated_duration % 60)
         st.info(f"🎵 Generating audio... ({word_count} words ≈ {minutes}m {seconds}s at {'Slow' if slow else 'Normal'} speed)")
         
-        # gTTS handles language codes automatically
+        # Generate TTS
         tts = gTTS(text, lang=language_code, slow=slow)
         mp3_fp = BytesIO()
         tts.write_to_fp(mp3_fp)
         mp3_fp.seek(0)
         
-        # Show success message with actual duration
+        # Show success message
         st.success(f"✅ Audio ready! Duration: ~{minutes}m {seconds}s")
         
         return mp3_fp
