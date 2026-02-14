@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # ===== PAGE CONFIG =====
 st.set_page_config(
     page_title="🔐 Admin Panel - Akashvani",
-    page_icon="🔐",
+    page_icon="https://akashvani.cxloop.co/favicon.ico",
     layout="wide",
 )
 
@@ -41,8 +41,8 @@ def check_password():
             key="admin_password",
             placeholder="Enter password..."
         )
-        st.caption("⚠️ This area is restricted to administrators only")
-        st.info("💡 **Hint:** Check `.streamlit/secrets.toml` for the admin password")
+        #st.caption("⚠️ This area is restricted to administrators only")
+        #st.info("💡 **Hint:** Check `.streamlit/secrets.toml` for the admin password")
         return False
     elif not st.session_state["password_correct"]:
         # Password incorrect, show input + error
