@@ -33,7 +33,7 @@ from config.languages import (
     is_tts_supported
 )
 from utils.news_fetcher import get_top_news, format_article, get_article_content, _is_cricket_score_query
-from utils.translator import translate_to_language, get_ai_summary
+from utils.translator import translate_to_language, translate_search_query_to_english, get_ai_summary
 from utils.tts_handler import text_to_speech, get_speech_speed_display, is_language_supported
 from utils.cricket_scraper import extract_score_from_article
 
@@ -299,6 +299,18 @@ with btn_col:
 
 if st.button("❓ Help"):
     st.info("Choose language from the center above, set speed/duration/articles and AI Summary in the row below. Enter a topic and press Search. For cricket scores, search like 'India vs Australia score'. AI summary and audio will be generated.")
+
+if search_button and query and len(query.strip()) >= 2:
+    with st.spinner("🌐 Detecting language and translating search topic to English..."):
+        english_query = translate_search_query_to_english(query.strip(), client)
+
+    if english_query is None:
+        st.error("⚠️ Could not translate the search topic. Please try again.")
+        search_button = False
+    else:
+        if english_query != query.strip():
+            st.info(f"Searching for the English topic: **{english_query}**")
+        query = english_query
 
 # ===== PROCESS AND DISPLAY =====
 if search_button:
