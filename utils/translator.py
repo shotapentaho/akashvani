@@ -8,6 +8,38 @@ Version: 1.4 | 2026-02-13
 import streamlit as st
 from config.languages import LANGUAGE_NAMES
 
+def translate_search_query_to_english(text: str, client) -> str | None:
+    """
+    Detect the search topic's language and translate it into English.
+
+    Returns the original topic when it is already English, or None if
+    translation fails.
+    """
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Identify the language of the search topic. If it is not English, translate it into concise English. If it is already English, return it unchanged. Return only the English search topic."
+                },
+                {
+                    "role": "user",
+                    "content": text
+                }
+            ],
+            max_tokens=100,
+            temperature=0
+        )
+        translated_text = response.choices[0].message.content
+        if translated_text and translated_text.strip():
+            return translated_text.strip()
+        return None
+    except Exception as e:
+        print(f"Search topic translation error: {e}")
+        return None
+
+
 def translate_to_language(text: str, target_lang_code: str, client) -> str:
     """
     Translate text to target Indian language using OpenAI
