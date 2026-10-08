@@ -5,10 +5,13 @@ Using OpenAI for text translation and summarization
 Version: 1.4 | 2026-02-13
 """
 
+from typing import Optional
+
 import streamlit as st
 from config.languages import LANGUAGE_NAMES
 
-def translate_search_query_to_english(text: str, client) -> str | None:
+
+def translate_search_query_to_english(text: str, client) -> Optional[str]:
     """
     Detect the search topic's language and translate it into English.
 
