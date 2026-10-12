@@ -80,7 +80,11 @@ with header_col2:
 st.markdown("---")
 
 # ===== TABS =====
-tab1, tab2 = st.tabs(["🔍 System Diagnostics", "📊 Analytics Dashboard"])
+tab1, tab2, tab3 = st.tabs([
+    "🔍 System Diagnostics",
+    "📊 Analytics Dashboard",
+    "📈 Admin Charts",
+])
 
 # ===== TAB 1: DIAGNOSTICS =====
 with tab1:
@@ -112,6 +116,18 @@ with tab2:
         
     except Exception as e:
         st.error(f"❌ Failed to load dashboard module: {e}")
+        import traceback
+        with st.expander("🔍 Error Details"):
+            st.code(traceback.format_exc())
+
+# ===== TAB 3: ADMIN CHARTS =====
+with tab3:
+    try:
+        from charts import show_charts
+        show_charts()
+
+    except Exception as e:
+        st.error(f"❌ Failed to load admin charts module: {e}")
         import traceback
         with st.expander("🔍 Error Details"):
             st.code(traceback.format_exc())
