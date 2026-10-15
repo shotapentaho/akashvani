@@ -37,6 +37,12 @@ from utils.translator import translate_to_language, get_ai_summary
 from utils.tts_handler import text_to_speech, get_speech_speed_display, is_language_supported
 from utils.cricket_scraper import extract_score_from_article
 from utils.weather_fetcher import get_current_weather, extract_weather_location
+from utils.auto_search import DEBOUNCE_MS, query_fingerprint, should_auto_run
+
+try:
+    from st_keyup import st_keyup
+except ImportError:  # fallback: query is then submitted on Enter/blur or via Search button
+    st_keyup = None
 
 # Database tracking
 DB_TRACKING_ENABLED = False
@@ -289,20 +295,31 @@ st.markdown("---")
 search_col, btn_col = st.columns([4, 1])
 
 with search_col:
-    query = st.text_input(
-        "Search topic",
+    _query_kwargs = dict(
         placeholder="e.g., Elections, Stock Market, Cricket, Health, Weather, Technology, India vs Australia...",
-        help="Type a topic you want to read about or cricket match (e.g., India vs Australia score)"
+        help="Type a topic and pause: results appear automatically (the Search button is optional). For weather, include a place, e.g. 'weather in Mumbai'."
     )
+    if st_keyup is not None:
+        query = st_keyup("Search topic", debounce=DEBOUNCE_MS, key="search_query", **_query_kwargs) or ""
+    else:
+        query = st.text_input("Search topic", **_query_kwargs)
 
 with btn_col:
     search_button = st.button("🔍 Search", key="search_btn", use_container_width=True)
 
 if st.button("❓ Help"):
-    st.info("Choose language from the center above, set speed/duration/articles and AI Summary in the row below. Enter a topic and press Search. For cricket scores, search like 'India vs Australia score'. For weather, try 'weather in Mumbai'. AI summary and audio will be generated.")
+    st.info("Choose language from the center above, set speed/duration/articles and AI Summary in the row below. Type a topic and pause; results start automatically (the Search button is optional). For cricket scores, search like 'India vs Australia score'. For weather, try 'weather in Mumbai'. AI summary and audio will be generated.")
 
 # ===== PROCESS AND DISPLAY =====
+# Auto-run once per distinct query/settings (avoids repeats on Streamlit reruns);
+# the Search button always forces a run.
+_fingerprint = query_fingerprint(query, language_code, results_count, duration_key, speech_speed, use_ai_summary)
+auto_search = should_auto_run(query, _fingerprint, st.session_state.get("last_search_fingerprint"))
+if auto_search:
+    st.session_state.last_search_fingerprint = _fingerprint
 if search_button:
+    st.session_state.last_search_fingerprint = _fingerprint
+if search_button or auto_search:
     if not query or len(query.strip()) < 2:
         st.warning("⚠️ Please enter a valid news topic (at least 2 characters).")
     elif extract_weather_location(query):
