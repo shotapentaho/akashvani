@@ -36,6 +36,7 @@ from utils.news_fetcher import get_top_news, format_article, get_article_content
 from utils.translator import translate_to_language, get_ai_summary
 from utils.tts_handler import text_to_speech, get_speech_speed_display, is_language_supported
 from utils.cricket_scraper import extract_score_from_article
+from utils.weather_fetcher import get_current_weather, extract_weather_location
 
 # Database tracking
 DB_TRACKING_ENABLED = False
@@ -298,12 +299,89 @@ with btn_col:
     search_button = st.button("🔍 Search", key="search_btn", use_container_width=True)
 
 if st.button("❓ Help"):
-    st.info("Choose language from the center above, set speed/duration/articles and AI Summary in the row below. Enter a topic and press Search. For cricket scores, search like 'India vs Australia score'. AI summary and audio will be generated.")
+    st.info("Choose language from the center above, set speed/duration/articles and AI Summary in the row below. Enter a topic and press Search. For cricket scores, search like 'India vs Australia score'. For weather, try 'weather in Mumbai'. AI summary and audio will be generated.")
 
 # ===== PROCESS AND DISPLAY =====
 if search_button:
     if not query or len(query.strip()) < 2:
         st.warning("⚠️ Please enter a valid news topic (at least 2 characters).")
+    elif extract_weather_location(query):
+        weather_location = extract_weather_location(query)
+        weather = None
+        weather_error = False
+        try:
+            with st.spinner(f"🌤️ Checking weather in {weather_location}..."):
+                weather = get_current_weather(weather_location)
+        except Exception as e:
+            print(f"Weather error: {e}")
+            weather_error = True
+
+        if weather_error:
+            st.error("⚠️ Weather service is not available right now. Please try again in a few minutes.")
+        elif not weather:
+            st.warning(f"❌ Could not find a place named '{weather_location}'. Please check the spelling or try a nearby city.")
+        elif weather.get("temperature") is None:
+            st.warning("⚠️ Weather data for this place is incomplete right now. Please try again later.")
+        else:
+            display_location = ", ".join(
+                str(part) for part in [weather.get("location"), weather.get("region"), weather.get("country")] if part
+            )
+            unit = weather.get("unit") or "°C"
+            temp_text = f"{weather['temperature']}{unit}"
+            feels = weather.get("apparent_temperature")
+            feels_text = f"{feels}{unit}" if feels is not None else None
+
+            st.markdown("---")
+            st.markdown("## 🌤️ Current Weather")
+            st.markdown(f"### 📍 {display_location}")
+            st.metric(label="Temperature now", value=temp_text)
+            if feels_text:
+                st.markdown(f"#### 🌡️ Feels like: **{feels_text}**")
+            if weather.get("timestamp"):
+                tz = f" ({weather['timezone']})" if weather.get("timezone") else ""
+                st.caption(f"🕒 Observed at: {weather['timestamp']}{tz}")
+
+            english_weather_text = f"The current temperature in {display_location} is {weather['temperature']} degrees Celsius"
+            if feels_text:
+                english_weather_text += f", and it feels like {feels} degrees Celsius"
+            english_weather_text += "."
+
+            if DB_TRACKING_ENABLED:
+                try:
+                    track_api_call("open-meteo", query, "success", 1)
+                except Exception as e:
+                    print(f"Tracking error: {e}")
+
+            st.markdown("---")
+            st.write("**📝 Weather in English:**")
+            st.info(english_weather_text)
+            slow_mode = speech_speed == "Slow 🐢"
+            try:
+                st.write("**🔊 Listen in English:**")
+                audio_en = text_to_speech(english_weather_text, "en", slow=slow_mode)
+                if audio_en:
+                    st.audio(audio_en, format="audio/mp3")
+            except Exception as e:
+                print(f"English TTS error: {e}")
+
+            if language_code != "en":
+                st.markdown("---")
+                try:
+                    with st.spinner(f"🌐 Translating to {selected_language}..."):
+                        weather_text_translated = translate_to_language(english_weather_text, language_code, client)
+                    st.write(f"**📝 Weather in {selected_language}:**")
+                    st.success(weather_text_translated)
+
+                    if is_language_supported(language_code):
+                        st.write(f"**🔊 Listen in {selected_language}:**")
+                        audio_translated = text_to_speech(weather_text_translated, language_code, slow=slow_mode)
+                        if audio_translated:
+                            st.audio(audio_translated, format="audio/mp3")
+                    else:
+                        st.info(f"Voice narration not available for {selected_language}")
+                except Exception as e:
+                    print(f"Translation/TTS error: {e}")
+                    st.warning("⚠️ Could not translate the weather. The English version is shown above.")
     else:
         st.session_state.api_calls_today += 1
         
