@@ -74,7 +74,7 @@ from utils.auto_search import (
 try:
     from st_keyup import st_keyup
 except ImportError:
-    # Fallback: users can submit with Enter, blur, or the Search button.
+    # Fallback: users can submit with Enter or blur.
     st_keyup = None
 
 
@@ -391,43 +391,32 @@ st.markdown("---")
 
 
 # ===== SEARCH INPUT =====
-search_col, btn_col = st.columns([4, 1])
+search_placeholder = (
+    "e.g., Elections, Stock Market, Cricket, Health, Weather, "
+    "Technology, India vs Australia..."
+)
 
-with search_col:
-    search_placeholder = (
-        "e.g., Elections, Stock Market, Cricket, Health, Weather, "
-        "Technology, India vs Australia..."
+if st_keyup is not None:
+    # st_keyup does not support help= or placeholder=.
+    query = st_keyup(
+        "Search topic",
+        debounce=DEBOUNCE_MS,
+        key="search_query",
+    ) or ""
+
+    st.caption(
+        "Type a topic and pause. Results appear automatically. "
+        "For weather, try: weather in Mumbai."
     )
 
-    if st_keyup is not None:
-        # st_keyup does not support help= or placeholder=.
-        query = st_keyup(
-            "Search topic",
-            debounce=DEBOUNCE_MS,
-            key="search_query",
-        ) or ""
-
-        st.caption(
+else:
+    query = st.text_input(
+        "Search topic",
+        placeholder=search_placeholder,
+        help=(
             "Type a topic and pause. Results appear automatically. "
-            "For weather, try: weather in Mumbai."
-        )
-
-    else:
-        query = st.text_input(
-            "Search topic",
-            placeholder=search_placeholder,
-            help=(
-                "Type a topic and pause. Results appear automatically. "
-                "For weather, try 'weather in Mumbai'."
-            ),
-        )
-
-
-with btn_col:
-    search_button = st.button(
-        "🔍 Search",
-        key="search_btn",
-        use_container_width=True,
+            "For weather, try 'weather in Mumbai'."
+        ),
     )
 
 
@@ -435,8 +424,7 @@ if st.button("❓ Help"):
     st.info(
         "Choose a language, set speed, duration, article count, and "
         "AI Summary. Type a topic and pause; results start automatically. "
-        "The Search button is also available. For cricket scores, try "
-        "'India vs Australia score'. For weather, try 'weather in Mumbai'."
+        "For cricket scores, try 'India vs Australia score'. For weather, try 'weather in Mumbai'."
     )
 
 
@@ -459,11 +447,7 @@ auto_search = should_auto_run(
 if auto_search:
     st.session_state.last_search_fingerprint = _fingerprint
 
-if search_button:
-    st.session_state.last_search_fingerprint = _fingerprint
-
-
-if search_button or auto_search:
+if auto_search:
     if not query or len(query.strip()) < 2:
         st.warning(
             "⚠️ Please enter a valid news topic "
