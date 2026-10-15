@@ -43,6 +43,9 @@ INTERNATIONAL_DOMAINS = [
     "business-standard.com",
     "firstpost.com",
     "outlookindia.com",
+    "indiatoday.in",
+    # Bangladesh
+    "thedailystar.net",
     #Cricket
     "espncricinfo.com",
     # BBC
