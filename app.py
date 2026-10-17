@@ -441,7 +441,11 @@ auto_search = should_auto_run(
 if auto_search:
     st.session_state.last_search_fingerprint = _fingerprint
 
-if auto_search:
+weather_selection_active = (
+    st.session_state.get("weather_selection_query") == query
+)
+
+if auto_search or weather_selection_active:
     if not query or len(query.strip()) < 2:
         st.warning(
             "⚠️ Please enter a valid news topic "
@@ -463,6 +467,7 @@ if auto_search:
 
             if len(weather_places) > 1:
                 weather_selection_pending = True
+                st.session_state.weather_selection_query = query
                 st.warning(
                     f"Several places named '{weather_location}' were found. "
                     "Choose one to see its weather."
