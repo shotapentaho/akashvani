@@ -1,4 +1,4 @@
-"""Current weather lookup using the Open-Meteo APIs (no API key required)."""
+"""Current weather and three-day forecasts using Open-Meteo (no API key required)."""
 
 import re
 
@@ -244,6 +244,8 @@ def get_current_weather(location: str, place: dict | None = None):
             "latitude": place["latitude"],
             "longitude": place["longitude"],
             "current": "temperature_2m,apparent_temperature",
+            "daily": "temperature_2m_max,temperature_2m_min,weather_code",
+            "forecast_days": 3,
             "temperature_unit": "celsius",
             "timezone": "auto",
         },
@@ -253,6 +255,21 @@ def get_current_weather(location: str, place: dict | None = None):
 
     data = response.json()
     current = data.get("current") or {}
+    daily = data.get("daily") or {}
+    forecast = [
+        {
+            "date": forecast_date,
+            "temperature_max": temperature_max,
+            "temperature_min": temperature_min,
+            "weather_code": weather_code,
+        }
+        for forecast_date, temperature_max, temperature_min, weather_code in zip(
+            daily.get("time") or [],
+            daily.get("temperature_2m_max") or [],
+            daily.get("temperature_2m_min") or [],
+            daily.get("weather_code") or [],
+        )
+    ]
 
     return {
         "location": place.get("name", location),
@@ -265,4 +282,5 @@ def get_current_weather(location: str, place: dict | None = None):
         "unit": "°C",
         "timestamp": current.get("time"),
         "timezone": data.get("timezone"),
+        "forecast": forecast,
     }

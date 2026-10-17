@@ -574,6 +574,25 @@ if auto_search or weather_selection_active:
                     f"#### 🌡️ Feels like: **{feels_like}{unit}**"
                 )
 
+            forecast = weather.get("forecast") or []
+            if forecast:
+                st.markdown("### 📅 3-Day Forecast")
+                forecast_columns = st.columns(len(forecast))
+                for forecast_column, forecast_day in zip(
+                    forecast_columns,
+                    forecast,
+                ):
+                    with forecast_column:
+                        st.markdown(f"**{forecast_day['date']}**")
+                        st.metric(
+                            "High",
+                            f"{forecast_day['temperature_max']}{unit}",
+                        )
+                        st.metric(
+                            "Low",
+                            f"{forecast_day['temperature_min']}{unit}",
+                        )
+
             if weather.get("timestamp"):
                 timezone = weather.get("timezone", "")
                 timezone_text = f" ({timezone})" if timezone else ""
