@@ -79,6 +79,12 @@ class CurrentWeatherTests(unittest.TestCase):
                 "apparent_temperature": 11,
                 "time": "2026-10-17T12:00",
             },
+            "daily": {
+                "time": ["2026-10-17", "2026-10-18", "2026-10-19"],
+                "temperature_2m_max": [15, 16, 17],
+                "temperature_2m_min": [7, 8, 9],
+                "weather_code": [2, 3, 61],
+            },
             "timezone": "America/New_York",
         }
         mock_get.side_effect = [geocode_response, forecast_response]
@@ -88,6 +94,14 @@ class CurrentWeatherTests(unittest.TestCase):
         self.assertEqual(weather["region"], "Massachusetts")
         self.assertEqual(weather["country"], "United States")
         self.assertEqual(mock_get.call_args_list[0].kwargs["params"]["count"], 10)
+        forecast_params = mock_get.call_args_list[1].kwargs["params"]
+        self.assertEqual(forecast_params["forecast_days"], 3)
+        self.assertEqual(
+            forecast_params["daily"],
+            "temperature_2m_max,temperature_2m_min,weather_code",
+        )
+        self.assertEqual(len(weather["forecast"]), 3)
+        self.assertEqual(weather["forecast"][1]["temperature_max"], 16)
 
     @patch("utils.weather_fetcher.requests.get")
     def test_explicit_country_hint_selects_matching_geocode_result(self, mock_get):
