@@ -74,6 +74,13 @@ _US_STATE_CODES = {
     "wi": "wisconsin", "wy": "wyoming",
 }
 
+_LOCATION_ALIASES = {
+    "uk": "united kingdom",
+    "gb": "united kingdom",
+    "us": "united states",
+    "usa": "united states",
+}
+
 
 def _clean_location(value: str) -> str | None:
     """Normalize and validate an extracted location."""
@@ -133,14 +140,27 @@ def _normalise_place_part(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
 
 
-def _select_place(results: list[dict], location: str) -> dict:
-    """Prefer a geocoding result matching an explicit region or country hint."""
+def _location_hints(location: str) -> set[str]:
+    """Return explicit region and country hints supplied with a location."""
+    normalised = _normalise_place_part(location)
     parts = [_normalise_place_part(part) for part in location.split(",")[1:]]
-    hints = set(parts)
+    parts.extend(
+        alias
+        for short, alias in _LOCATION_ALIASES.items()
+        if re.search(rf"\b{re.escape(short)}\b", normalised)
+    )
 
-    for hint in parts:
+    hints = {part for part in parts if part}
+    for hint in tuple(hints):
         if len(hint) == 2 and hint in _US_STATE_CODES:
             hints.add(_US_STATE_CODES[hint])
+    return hints
+
+
+def _matching_place(results: list[dict], location: str) -> dict | None:
+    hints = _location_hints(location)
+    if not hints:
+        return None
 
     for place in results:
         candidates = {
@@ -151,15 +171,15 @@ def _select_place(results: list[dict], location: str) -> dict:
         }
         if hints.intersection(candidates):
             return place
+    return None
 
-    return results[0]
+
+def _select_place(results: list[dict], location: str) -> dict:
+    """Prefer a geocoding result matching an explicit region or country hint."""
+    return _matching_place(results, location) or results[0]
 
 
-def get_current_weather(location: str):
-    """Return current weather for a place or None if it is not found."""
-    if not location:
-        return None
-
+def _geocode_location(location: str) -> list[dict]:
     geo = requests.get(
         GEOCODE_URL,
         params={
@@ -173,18 +193,52 @@ def get_current_weather(location: str):
     geo.raise_for_status()
 
     results = geo.json().get("results") or []
-
     if not results:
-        # Retry with only the first comma-separated part,
-        # for example: "Bengaluru, India" -> "Bengaluru".
         first = location.split(",")[0].strip()
-
         if first and first != location:
-            return get_current_weather(first)
+            return _geocode_location(first)
+    return results
 
+
+def get_weather_locations(location: str) -> list[dict]:
+    """Return matching places, preserving ambiguity unless a hint disambiguates."""
+    if not location:
+        return []
+
+    results = _geocode_location(location)
+    if not results:
+        return []
+
+    matching = _matching_place(results, location)
+    if matching:
+        return [matching]
+
+    unique = {}
+    for place in results:
+        identity = (
+            place.get("name"),
+            place.get("admin1"),
+            place.get("admin2"),
+            place.get("country"),
+            place.get("country_code"),
+        )
+        unique.setdefault(identity, place)
+    return list(unique.values())
+
+
+def get_current_weather(location: str, place: dict | None = None):
+    """Return current weather for a place or None if it is not found."""
+    if not location:
         return None
 
-    place = _select_place(results, location)
+    if place is None:
+        places = get_weather_locations(location)
+        if len(places) != 1:
+            return None
+        place = places[0]
+
+    if not place:
+        return None
 
     response = requests.get(
         FORECAST_URL,
