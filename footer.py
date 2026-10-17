@@ -3,6 +3,7 @@ import streamlit as st
 
 def render_footer():
 
+
     st.markdown("---")
 
     f1, f2, f3, f4, f5 = st.columns(5)
@@ -23,21 +24,6 @@ def render_footer():
         st.caption("☀️ Current Weather")
 
     st.caption("---")
-
-    st.caption(
-        """
-    ✨ Akashvani v1.4 from CX Data & Analytics LLC
-    🗣️ 12 Indian languages · 1–3 min audio briefs · 🏏 Live cricket scores (SerpAPI)
-    🔄 Dual API: NewsAPI + GNews (200 requests/day total)
-    ⚡ Optimized: GPT-3.5-turbo with smart caching
-    📊 Analytics: PostgreSQL insert-only tracking
-    🏗️ Streamlit + OpenAI + gTTS + NewsAPI + GNews + SerpAPI + PostgreSQL
-    ❤️ Crafted with accessibility in mind
-    📧 Support: support@cxloop.co
-    """
-    )
-
-    st.markdown("---")
 
     col1, col2, col3 = st.columns([0.3, 0.4, 0.3])
 
