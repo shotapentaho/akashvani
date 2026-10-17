@@ -2,21 +2,10 @@ import streamlit as st
 
 
 def render_footer():
-    tips_html = """
-    <div class='header-tip'>
-      <div>• Use Slow speed for clarity</div>
-      <div>• Use Long duration for detailed news</div>
-      <div>• Enable AI Summary for simpler language</div>
-      <div>• Use headphones for better sound</div>
-      <div>• Search cricket scores (e.g., India vs Aus)</div>
-      <div>• Type a topic and pause for automatic search</div>
-    </div>
-    """
-    st.markdown(tips_html, unsafe_allow_html=True)
 
     st.markdown("---")
 
-    f1, f2, f3, f4 = st.columns(4)
+    f1, f2, f3, f4, f5 = st.columns(5)
 
     with f1:
         st.caption("📱 Senior-Friendly")
@@ -25,10 +14,13 @@ def render_footer():
         st.caption("🌍 12 Languages")
 
     with f3:
-        st.caption("🤖 AI-Powered")
+        st.caption("🤖 AI-Powered Text-To-Speech and Translation")
 
     with f4:
         st.caption("🏏 Live Cricket Scores")
+
+    with f5:
+        st.caption("☀️ Current Weather")
 
     st.caption("---")
 
