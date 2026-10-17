@@ -64,6 +64,7 @@ from utils.tts_handler import (
 from utils.cricket_scraper import extract_score_from_article
 from utils.weather_fetcher import (
     get_current_weather,
+    get_weather_locations,
     extract_weather_location,
 )
 from utils.auto_search import (
@@ -440,7 +441,11 @@ auto_search = should_auto_run(
 if auto_search:
     st.session_state.last_search_fingerprint = _fingerprint
 
-if auto_search:
+weather_selection_active = (
+    st.session_state.get("weather_selection_query") == query
+)
+
+if auto_search or weather_selection_active:
     if not query or len(query.strip()) < 2:
         st.warning(
             "⚠️ Please enter a valid news topic "
@@ -452,12 +457,55 @@ if auto_search:
         weather_location = extract_weather_location(query)
         weather = None
         weather_error = False
+        weather_selection_pending = False
 
         try:
             with st.spinner(
                 f"🌤️ Checking weather in {weather_location}..."
             ):
-                weather = get_current_weather(weather_location)
+                weather_places = get_weather_locations(weather_location)
+
+            if len(weather_places) > 1:
+                weather_selection_pending = True
+                st.session_state.weather_selection_query = query
+                st.warning(
+                    f"Several places named '{weather_location}' were found. "
+                    "Choose one to see its weather."
+                )
+                place_labels = [
+                    ", ".join(
+                        str(part)
+                        for part in [
+                            place.get("name"),
+                            place.get("admin1"),
+                            place.get("country"),
+                        ]
+                        if part
+                    )
+                    for place in weather_places
+                ]
+                selected_label = st.selectbox(
+                    "Choose a place",
+                    place_labels,
+                    key=f"weather_place_{weather_location.lower()}",
+                )
+                if st.button(
+                    "Show weather",
+                    key=f"show_weather_{weather_location.lower()}",
+                ):
+                    selected_place = weather_places[place_labels.index(
+                        selected_label
+                    )]
+                    weather = get_current_weather(
+                        weather_location,
+                        selected_place,
+                    )
+                    weather_selection_pending = False
+            elif weather_places:
+                weather = get_current_weather(
+                    weather_location,
+                    weather_places[0],
+                )
 
         except Exception as e:
             print(f"Weather error: {e}")
@@ -468,6 +516,9 @@ if auto_search:
                 "⚠️ Weather service is not available right now. "
                 "Please try again in a few minutes."
             )
+
+        elif weather_selection_pending:
+            pass
 
         elif not weather:
             st.warning(

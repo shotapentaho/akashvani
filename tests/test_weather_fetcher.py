@@ -4,7 +4,11 @@ import unittest
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.weather_fetcher import extract_weather_location, get_current_weather
+from utils.weather_fetcher import (
+    extract_weather_location,
+    get_current_weather,
+    get_weather_locations,
+)
 
 
 class ExtractWeatherLocationTests(unittest.TestCase):
@@ -32,15 +36,15 @@ class ExtractWeatherLocationTests(unittest.TestCase):
 
 
 class CurrentWeatherTests(unittest.TestCase):
-    @patch("utils.weather_fetcher.requests.get")
-    def test_explicit_state_hint_selects_matching_geocode_result(self, mock_get):
-        geocode_response = Mock()
-        geocode_response.json.return_value = {
+    def _geocode_response(self):
+        response = Mock()
+        response.json.return_value = {
             "results": [
                 {
                     "name": "Shrewsbury",
                     "admin1": "England",
                     "country": "United Kingdom",
+                    "country_code": "GB",
                     "latitude": 52.7,
                     "longitude": -2.75,
                 },
@@ -54,6 +58,20 @@ class CurrentWeatherTests(unittest.TestCase):
                 },
             ]
         }
+        return response
+
+    @patch("utils.weather_fetcher.requests.get")
+    def test_ambiguous_name_returns_all_matching_places(self, mock_get):
+        mock_get.return_value = self._geocode_response()
+
+        places = get_weather_locations("Shrewsbury")
+
+        self.assertEqual(len(places), 2)
+        self.assertEqual(mock_get.call_count, 1)
+
+    @patch("utils.weather_fetcher.requests.get")
+    def test_explicit_state_hint_selects_matching_geocode_result(self, mock_get):
+        geocode_response = self._geocode_response()
         forecast_response = Mock()
         forecast_response.json.return_value = {
             "current": {
@@ -70,6 +88,15 @@ class CurrentWeatherTests(unittest.TestCase):
         self.assertEqual(weather["region"], "Massachusetts")
         self.assertEqual(weather["country"], "United States")
         self.assertEqual(mock_get.call_args_list[0].kwargs["params"]["count"], 10)
+
+    @patch("utils.weather_fetcher.requests.get")
+    def test_explicit_country_hint_selects_matching_geocode_result(self, mock_get):
+        mock_get.return_value = self._geocode_response()
+
+        places = get_weather_locations("Shrewsbury UK")
+
+        self.assertEqual(len(places), 1)
+        self.assertEqual(places[0]["country"], "United Kingdom")
 
 
 if __name__ == "__main__":
