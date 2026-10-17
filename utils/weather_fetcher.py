@@ -56,6 +56,24 @@ _EXTRA_WORDS = {
     "update",
 }
 
+_US_STATE_CODES = {
+    "al": "alabama", "ak": "alaska", "az": "arizona", "ar": "arkansas",
+    "ca": "california", "co": "colorado", "ct": "connecticut",
+    "de": "delaware", "fl": "florida", "ga": "georgia", "hi": "hawaii",
+    "id": "idaho", "il": "illinois", "in": "indiana", "ia": "iowa",
+    "ks": "kansas", "ky": "kentucky", "la": "louisiana", "me": "maine",
+    "md": "maryland", "ma": "massachusetts", "mi": "michigan",
+    "mn": "minnesota", "ms": "mississippi", "mo": "missouri",
+    "mt": "montana", "ne": "nebraska", "nv": "nevada",
+    "nh": "new hampshire", "nj": "new jersey", "nm": "new mexico",
+    "ny": "new york", "nc": "north carolina", "nd": "north dakota",
+    "oh": "ohio", "ok": "oklahoma", "or": "oregon", "pa": "pennsylvania",
+    "ri": "rhode island", "sc": "south carolina", "sd": "south dakota",
+    "tn": "tennessee", "tx": "texas", "ut": "utah", "vt": "vermont",
+    "va": "virginia", "wa": "washington", "wv": "west virginia",
+    "wi": "wisconsin", "wy": "wyoming",
+}
+
 
 def _clean_location(value: str) -> str | None:
     """Normalize and validate an extracted location."""
@@ -111,6 +129,32 @@ def extract_weather_location(query: str | None) -> str | None:
     return None
 
 
+def _normalise_place_part(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _select_place(results: list[dict], location: str) -> dict:
+    """Prefer a geocoding result matching an explicit region or country hint."""
+    parts = [_normalise_place_part(part) for part in location.split(",")[1:]]
+    hints = set(parts)
+
+    for hint in parts:
+        if len(hint) == 2 and hint in _US_STATE_CODES:
+            hints.add(_US_STATE_CODES[hint])
+
+    for place in results:
+        candidates = {
+            _normalise_place_part(str(place.get("admin1", ""))),
+            _normalise_place_part(str(place.get("admin2", ""))),
+            _normalise_place_part(str(place.get("country", ""))),
+            _normalise_place_part(str(place.get("country_code", ""))),
+        }
+        if hints.intersection(candidates):
+            return place
+
+    return results[0]
+
+
 def get_current_weather(location: str):
     """Return current weather for a place or None if it is not found."""
     if not location:
@@ -120,7 +164,7 @@ def get_current_weather(location: str):
         GEOCODE_URL,
         params={
             "name": location,
-            "count": 1,
+            "count": 10,
             "language": "en",
             "format": "json",
         },
@@ -140,7 +184,7 @@ def get_current_weather(location: str):
 
         return None
 
-    place = results[0]
+    place = _select_place(results, location)
 
     response = requests.get(
         FORECAST_URL,
