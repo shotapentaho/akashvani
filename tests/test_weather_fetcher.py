@@ -98,6 +98,38 @@ class CurrentWeatherTests(unittest.TestCase):
         self.assertEqual(len(places), 1)
         self.assertEqual(places[0]["country"], "United Kingdom")
 
+    @patch("utils.weather_fetcher.requests.get")
+    def test_duplicate_display_locations_are_returned_once(self, mock_get):
+        response = Mock()
+        response.json.return_value = {
+            "results": [
+                {
+                    "name": "Sambalpur",
+                    "admin1": "Chhattisgarh",
+                    "admin2": "District A",
+                    "country": "India",
+                    "country_code": "IN",
+                    "latitude": 21.47,
+                    "longitude": 83.97,
+                },
+                {
+                    "name": "Sambalpur",
+                    "admin1": "Chhattisgarh",
+                    "admin2": "District B",
+                    "country": "India",
+                    "country_code": "IN",
+                    "latitude": 21.48,
+                    "longitude": 83.98,
+                },
+            ]
+        }
+        mock_get.return_value = response
+
+        places = get_weather_locations("Sambalpur")
+
+        self.assertEqual(len(places), 1)
+        self.assertEqual(places[0]["name"], "Sambalpur")
+
 
 if __name__ == "__main__":
     unittest.main()

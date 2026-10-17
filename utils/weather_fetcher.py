@@ -216,11 +216,9 @@ def get_weather_locations(location: str) -> list[dict]:
     unique = {}
     for place in results:
         identity = (
-            place.get("name"),
-            place.get("admin1"),
-            place.get("admin2"),
-            place.get("country"),
-            place.get("country_code"),
+            _normalise_place_part(str(place.get("name", ""))),
+            _normalise_place_part(str(place.get("admin1", ""))),
+            _normalise_place_part(str(place.get("country", ""))),
         )
         unique.setdefault(identity, place)
     return list(unique.values())
