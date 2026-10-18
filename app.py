@@ -412,8 +412,9 @@ with st.container():
         
 
     else:
+        st.markdown("**Search topic**")
         query = st.text_input(
-            "Search topic",
+            "",
             placeholder=search_placeholder,
             help=(
                 "Type a topic and pause. Results appear instantly. "
