@@ -400,9 +400,14 @@ with st.container():
         st.caption(
             "Type a topic and pause. Results appear automatically. "
             "For weather, try: weather in Mumbai."
-            " News: news around the world. or News from India or News from a state"
-            " Live Cricket: Cricket Score or India vs Australia score. "
         )
+        st.caption(
+            "For News: news around the world. or News from India or News from a state"
+        )
+        st.caption(
+            "For Live Cricket: Cricket Score or India vs Australia score. "
+        )
+        
 
     else:
         query = st.text_input(
