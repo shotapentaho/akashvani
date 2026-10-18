@@ -400,6 +400,7 @@ with st.container():
         st.caption(
             "Type a topic and pause. Results appear automatically. "
             "For weather, try: weather in Mumbai."
+            "For news try: news around the world." or "news from India"
         )
 
     else:
