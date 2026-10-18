@@ -12,16 +12,16 @@ def render_footer():
         st.caption("📱 Senior-Friendly")
 
     with f2:
-        st.caption("🌍 12 Languages")
+        st.caption("🌍 12 Indian Languages")
 
     with f3:
-        st.caption("🤖 AI-Powered Text-To-Speech and Translation")
+        st.caption("🤖 AI-Powered: Text-To-Speech and Translation")
 
     with f4:
         st.caption("🏏 Live Cricket Scores")
 
     with f5:
-        st.caption("☀️ Current Weather")
+        st.caption("☀️ Weather Forecast")
 
     st.caption("---")
 
