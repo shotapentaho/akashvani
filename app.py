@@ -399,11 +399,11 @@ with st.container():
         ) or ""
 
         st.caption(
-            "Type a topic and pause. Results appear automatically. "
+            "Type a topic and pause. Results appear instantly. "
             "For weather, try: weather in Mumbai."
         )
         st.caption(
-            "For News: news around the world. or News from India or News from a state"
+            "For News, try: News around the world. or News from India or News from a particular state"
         )
         st.caption(
             "For Live Cricket: Cricket Score or India vs Australia score. "
@@ -415,7 +415,7 @@ with st.container():
             "Search topic",
             placeholder=search_placeholder,
             help=(
-                "Type a topic and pause. Results appear automatically. "
+                "Type a topic and pause. Results appear instantly. "
                 "For weather, try 'weather in Mumbai'."
             ),
         )
