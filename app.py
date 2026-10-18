@@ -414,8 +414,6 @@ with st.container():
             ),
         )
 
-
-
 # ===== PROCESS AND DISPLAY =====
 _fingerprint = query_fingerprint(
     query,
