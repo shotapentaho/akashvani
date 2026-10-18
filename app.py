@@ -66,6 +66,7 @@ from utils.weather_fetcher import (
     get_current_weather,
     get_weather_locations,
     extract_weather_location,
+    get_weather_condition,
 )
 from utils.auto_search import (
     DEBOUNCE_MS,
@@ -556,10 +557,18 @@ if auto_search or weather_selection_active:
             unit = weather.get("unit") or "°C"
             temperature = weather["temperature"]
             feels_like = weather.get("apparent_temperature")
+            condition_label, condition_icon = get_weather_condition(
+                weather.get("weather_code")
+            )
 
             st.markdown("---")
             st.markdown("## 🌤️ Current Weather")
             st.markdown(f"### 📍 {display_location}")
+            st.markdown(
+                f"<div style='font-size: 3rem; line-height: 1.2'>"
+                f"{condition_icon}</div><h3>{condition_label}</h3>",
+                unsafe_allow_html=True,
+            )
 
             st.metric(
                 label="Temperature now",
@@ -581,6 +590,15 @@ if auto_search or weather_selection_active:
                 ):
                     with forecast_column:
                         st.markdown(f"**{forecast_day['date']}**")
+                        forecast_label, forecast_icon = get_weather_condition(
+                            forecast_day.get("weather_code")
+                        )
+                        st.markdown(
+                            f"<div style='font-size: 2.5rem; "
+                            f"line-height: 1.2'>{forecast_icon}</div>"
+                            f"<strong>{forecast_label}</strong>",
+                            unsafe_allow_html=True,
+                        )
                         st.metric(
                             "High",
                             f"{forecast_day['temperature_max']}{unit}",

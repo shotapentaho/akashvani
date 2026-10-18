@@ -81,6 +81,42 @@ _LOCATION_ALIASES = {
     "usa": "united states",
 }
 
+_WEATHER_CONDITIONS = {
+    0: ("Sunny", "☀️"),
+    1: ("Mostly sunny", "🌤️"),
+    2: ("Partly cloudy", "🌤️"),
+    3: ("Cloudy", "☁️"),
+    45: ("Foggy", "🌫️"),
+    48: ("Foggy", "🌫️"),
+    51: ("Light drizzle", "🌦️"),
+    53: ("Drizzle", "🌦️"),
+    55: ("Heavy drizzle", "🌦️"),
+    56: ("Freezing drizzle", "🌧️"),
+    57: ("Heavy freezing drizzle", "🌧️"),
+    61: ("Light rain", "🌧️"),
+    63: ("Rainy", "🌧️"),
+    65: ("Heavy rain", "🌧️"),
+    66: ("Freezing rain", "🌧️"),
+    67: ("Heavy freezing rain", "🌧️"),
+    71: ("Light snow", "🌨️"),
+    73: ("Snowy", "❄️"),
+    75: ("Heavy snow", "❄️"),
+    77: ("Snow grains", "❄️"),
+    80: ("Light showers", "🌦️"),
+    81: ("Showers", "🌦️"),
+    82: ("Heavy showers", "🌧️"),
+    85: ("Snow showers", "🌨️"),
+    86: ("Heavy snow showers", "🌨️"),
+    95: ("Thunderstorm", "⛈️"),
+    96: ("Thunderstorm with hail", "⛈️"),
+    99: ("Thunderstorm with heavy hail", "⛈️"),
+}
+
+
+def get_weather_condition(weather_code: int | None) -> tuple[str, str]:
+    """Return a friendly label and visual icon for a WMO weather code."""
+    return _WEATHER_CONDITIONS.get(weather_code, ("Weather unavailable", "🌡️"))
+
 
 def _clean_location(value: str) -> str | None:
     """Normalize and validate an extracted location."""
@@ -243,7 +279,7 @@ def get_current_weather(location: str, place: dict | None = None):
         params={
             "latitude": place["latitude"],
             "longitude": place["longitude"],
-            "current": "temperature_2m,apparent_temperature",
+            "current": "temperature_2m,apparent_temperature,weather_code",
             "daily": "temperature_2m_max,temperature_2m_min,weather_code",
             "forecast_days": 3,
             "temperature_unit": "celsius",
@@ -279,6 +315,7 @@ def get_current_weather(location: str, place: dict | None = None):
         "apparent_temperature": current.get(
             "apparent_temperature"
         ),
+        "weather_code": current.get("weather_code"),
         "unit": "°C",
         "timestamp": current.get("time"),
         "timezone": data.get("timezone"),
