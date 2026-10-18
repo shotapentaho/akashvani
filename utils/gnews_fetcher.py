@@ -50,7 +50,7 @@ def get_gnews_articles(query: str, api_key: str, top_k: int = 5) -> List[Dict]:
             return []
         
         if response.status_code == 403:
-            st.error("❌ GNews API authentication failed. Check your API key in secrets.toml")
+            #st.error("❌ GNews API authentication failed. Check your API key in secrets.toml")
             return []
         
         if response.status_code != 200:
