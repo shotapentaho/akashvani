@@ -392,8 +392,9 @@ with st.container():
 
     if st_keyup is not None:
         # st_keyup does not support help= or placeholder=.
+        st.markdown("**Search topic**")
         query = st_keyup(
-            "Search topic",
+            "",
             debounce=DEBOUNCE_MS,
             key="search_query",
         ) or ""
