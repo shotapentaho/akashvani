@@ -401,7 +401,7 @@ with st.container():
             "Type a topic and pause. Results appear automatically. "
             "For weather, try: weather in Mumbai."
             " News: news around the world. or News from India or News from a state"
-            " Live Cricket: Cricket Score."
+            " Live Cricket: Cricket Score or India vs Australia score. "
         )
 
     else:
@@ -414,14 +414,6 @@ with st.container():
             ),
         )
 
-
-if st.button("❓ Help"):
-    st.info(
-        "Choose a language, set speed, duration, article count, and "
-        "AI Summary. Type a topic and pause; results start automatically. "
-        "For cricket scores, try "
-        "'India vs Australia score'. For weather, try 'weather in Mumbai'."
-    )
 
 
 # ===== PROCESS AND DISPLAY =====
