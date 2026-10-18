@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.weather_fetcher import (
     extract_weather_location,
+    get_weather_condition,
     get_current_weather,
     get_weather_locations,
 )
@@ -36,6 +37,15 @@ class ExtractWeatherLocationTests(unittest.TestCase):
 
 
 class CurrentWeatherTests(unittest.TestCase):
+    def test_weather_condition_visuals(self):
+        self.assertEqual(get_weather_condition(0), ("Sunny", "☀️"))
+        self.assertEqual(get_weather_condition(63), ("Rainy", "🌧️"))
+        self.assertEqual(get_weather_condition(2), ("Partly cloudy", "🌤️"))
+        self.assertEqual(
+            get_weather_condition(999),
+            ("Weather unavailable", "🌡️"),
+        )
+
     def _geocode_response(self):
         response = Mock()
         response.json.return_value = {
@@ -77,6 +87,7 @@ class CurrentWeatherTests(unittest.TestCase):
             "current": {
                 "temperature_2m": 12,
                 "apparent_temperature": 11,
+                "weather_code": 2,
                 "time": "2026-10-17T12:00",
             },
             "daily": {
