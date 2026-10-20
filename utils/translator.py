@@ -8,6 +8,39 @@ Version: 1.4 | 2026-02-13
 import streamlit as st
 from config.languages import LANGUAGE_NAMES
 
+
+def is_non_english_script(text: str) -> bool:
+    """Return True when text contains alphabetic characters outside ASCII."""
+    return any(character.isalpha() and not character.isascii() for character in text or "")
+
+
+def translate_query_to_english(text: str, client) -> str:
+    """Translate a non-English search query to English for news APIs."""
+    if not text or not is_non_english_script(text):
+        return text
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Translate the search query to English. "
+                        "Return only the translated query."
+                    ),
+                },
+                {"role": "user", "content": text},
+            ],
+            max_tokens=100,
+            temperature=0,
+        )
+        return response.choices[0].message.content.strip() or text
+    except Exception as e:
+        print(f"Search query translation error: {e}")
+        return text
+
+
 def translate_to_language(text: str, target_lang_code: str, client) -> str:
     """
     Translate text to target Indian language using OpenAI

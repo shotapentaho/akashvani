@@ -55,7 +55,11 @@ from utils.news_fetcher import (
     get_article_content,
     _is_cricket_score_query,
 )
-from utils.translator import translate_to_language, get_ai_summary
+from utils.translator import (
+    translate_query_to_english,
+    translate_to_language,
+    get_ai_summary,
+)
 from utils.tts_handler import (
     text_to_speech,
     get_speech_speed_display,
@@ -718,6 +722,7 @@ if auto_search or weather_selection_active:
         articles = []
         api_used = "NewsAPI"
         service_error = False
+        news_query = translate_query_to_english(query, client)
 
         # ===== TRY NEWSAPI FIRST =====
         try:
@@ -725,7 +730,7 @@ if auto_search or weather_selection_active:
                 f"📡 Fetching news for '{query}'..."
             ):
                 articles = get_top_news(
-                    query,
+                    news_query,
                     news_api_key,
                     top_k=results_count,
                 )
@@ -782,7 +787,7 @@ if auto_search or weather_selection_active:
                     "📡 Fetching news from backup source..."
                 ):
                     articles = get_gnews_articles(
-                        query,
+                        news_query,
                         gnews_api_key,
                         top_k=results_count,
                     )
@@ -863,7 +868,7 @@ if auto_search or weather_selection_active:
         # ===== DISPLAY RESULTS =====
         else:
             # ===== CRICKET SCORES =====
-            if _is_cricket_score_query(query):
+            if _is_cricket_score_query(news_query):
                 st.markdown("---")
                 st.markdown("## 🏏 Cricket Scores")
 
@@ -881,7 +886,7 @@ if auto_search or weather_selection_active:
                         with st.spinner(
                             "🔍 Fetching live cricket scores..."
                         ):
-                            match_data = get_live_cricket_scores(query)
+                            match_data = get_live_cricket_scores(news_query)
 
                         if match_data:
                             live_score_found = True

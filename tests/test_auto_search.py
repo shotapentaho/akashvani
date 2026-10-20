@@ -1,9 +1,11 @@
 import os
 import sys
 import unittest
+from unittest.mock import Mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.auto_search import is_auto_eligible, query_fingerprint, should_auto_run
+from utils.translator import is_non_english_script, translate_query_to_english
 
 
 class AutoSearchTests(unittest.TestCase):
@@ -27,6 +29,24 @@ class AutoSearchTests(unittest.TestCase):
         self.assertTrue(should_auto_run("health", fp, None))
         self.assertFalse(should_auto_run("health", fp, fp))
         self.assertFalse(should_auto_run("weather in", query_fingerprint("weather in"), None))
+
+    def test_non_english_script_detection(self):
+        self.assertTrue(is_non_english_script("अर्थव्यवस्था"))
+        self.assertTrue(is_non_english_script("economy अर्थव्यवस्था"))
+        self.assertFalse(is_non_english_script("economy news"))
+
+    def test_query_translation_skips_english(self):
+        client = object()
+        self.assertEqual(translate_query_to_english("economy news", client), "economy news")
+
+    def test_query_translation_translates_non_english_script(self):
+        client = Mock()
+        client.chat.completions.create.return_value.choices = [
+            Mock(message=Mock(content="economy"))
+        ]
+
+        self.assertEqual(translate_query_to_english("अर्थव्यवस्था", client), "economy")
+        client.chat.completions.create.assert_called_once()
 
 
 if __name__ == "__main__":
