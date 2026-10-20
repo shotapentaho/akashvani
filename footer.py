@@ -6,22 +6,19 @@ def render_footer():
 
     st.markdown("---")
 
-    f1, f2, f3, f4, f5 = st.columns(5)
+    f1, f2, f3, f4  = st.columns(4)
 
     with f1:
         st.caption("📱 Senior-Friendly")
 
     with f2:
-        st.caption("🌍 12 Indian Languages")
+        st.caption("🌍 Indian Languages")
 
     with f3:
-        st.caption("🤖 AI-Powered: Text-To-Speech and Translation")
+        st.caption("🤖 AI-Powered: News-To-Speech with translation")
 
     with f4:
-        st.caption("🏏 Live Cricket Scores")
-
-    with f5:
-        st.caption("☀️ Weather Forecast")
+        st.caption("☀️  Weather Forecast 🏏 Live Cricket Scores")
 
     st.caption("---")
 
