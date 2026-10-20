@@ -298,18 +298,31 @@ def show_dashboard():
             if recent_conn:
                 cursor = recent_conn.cursor()
                 cursor.execute("""
-                    SELECT *
+                    SELECT
+                        api_name,
+                        query_text,
+                        response_status,
+                        articles_count,
+                        call_timestamp
                     FROM public.api_calls
-                    ORDER BY call_timestamp DESC;
+                    ORDER BY call_timestamp DESC
                 """)
                 
                 api_calls = cursor.fetchall()
-                columns = [description[0] for description in cursor.description]
                 cursor.close()
                 recent_conn.close()
                 
                 if api_calls:
-                    df_api = pd.DataFrame(api_calls, columns=columns)
+                    df_api = pd.DataFrame(
+                        api_calls,
+                        columns=[
+                            "API Name",
+                            "Query",
+                            "Response Status",
+                            "Articles",
+                            "Call Timestamp",
+                        ],
+                    )
                     st.dataframe(df_api, use_container_width=True, height=300, hide_index=True)
                 else:
                     st.info("No API calls recorded yet")
