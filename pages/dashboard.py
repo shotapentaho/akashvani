@@ -5,7 +5,6 @@ Real-time monitoring and usage statistics
 
 import streamlit as st
 from datetime import datetime, timedelta, date
-import pandas as pd
 
 def show_dashboard():
     """Display analytics dashboard"""
@@ -162,87 +161,6 @@ def show_dashboard():
         else:
             st.progress(0.0)
             st.caption("🟢 Ready for cricket")
-    
-    # ===== HISTORICAL API USAGE CHART =====
-    st.markdown("---")
-    st.subheader("📈 Historical API Usage (Last 7 Days)")
-    
-    if DB_AVAILABLE:
-        # Create new connection for historical data
-        history_conn = None
-        try:
-            history_conn = get_connection()
-            if history_conn:
-                cursor = history_conn.cursor()
-                
-                cursor.execute("""
-                    SELECT 
-                        DATE(call_timestamp) as date,
-                        api_name,
-                        COUNT(*) as calls
-                    FROM api_calls
-                    WHERE call_timestamp >= CURRENT_DATE - INTERVAL '7 days'
-                    GROUP BY DATE(call_timestamp), api_name
-                    ORDER BY date ASC
-                """)
-                
-                history_data = cursor.fetchall()
-                cursor.close()
-                
-                if history_data:
-                    df_history = pd.DataFrame(history_data, columns=['Date', 'API', 'Calls'])
-                    pivot_df = df_history.pivot(index='Date', columns='API', values='Calls').fillna(0)
-                    
-                    for api in ['newsapi', 'gnews', 'serpapi']:
-                        if api not in pivot_df.columns:
-                            pivot_df[api] = 0
-                    
-                    pivot_df = pivot_df.rename(columns={
-                        'newsapi': 'NewsAPI',
-                        'gnews': 'GNews',
-                        'serpapi': 'SerpAPI'
-                    })
-                    
-                    st.line_chart(pivot_df, use_container_width=True)
-                    
-                    col_stat1, col_stat2, col_stat3 = st.columns(3)
-                    
-                    with col_stat1:
-                        total_newsapi = int(pivot_df['NewsAPI'].sum())
-                        st.metric("NewsAPI (7 days)", total_newsapi)
-                    
-                    with col_stat2:
-                        total_gnews = int(pivot_df['GNews'].sum())
-                        st.metric("GNews (7 days)", total_gnews)
-                    
-                    with col_stat3:
-                        total_serpapi = int(pivot_df['SerpAPI'].sum())
-                        st.metric("SerpAPI (7 days)", total_serpapi)
-                    
-                    with st.expander("📊 View Raw Data"):
-                        st.dataframe(df_history, use_container_width=True, hide_index=True)
-                    
-                else:
-                    st.info("📭 No historical data available yet. Start using the app to see trends!")
-            else:
-                st.info("💾 Unable to fetch historical data")
-                
-        except Exception as e:
-            print(f"Historical chart error: {e}")
-            st.warning(f"⚠️ Unable to load historical data")
-            if history_conn:
-                try:
-                    history_conn.rollback()
-                except:
-                    pass
-        finally:
-            if history_conn:
-                try:
-                    history_conn.close()
-                except:
-                    pass
-    else:
-        st.info("💾 Database connection required for historical data")
     
     # ===== REAL-TIME ANALYTICS =====
     st.markdown("---")

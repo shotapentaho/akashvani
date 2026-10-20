@@ -79,38 +79,28 @@ with header_col2:
 
 st.markdown("---")
 
+# Add admin subdirectory to path for the tab modules.
+admin_path = os.path.join(os.path.dirname(__file__), 'admin')
+sys.path.insert(0, admin_path)
+
 # ===== TABS =====
-tab1, tab2, tab3 = st.tabs([
-    "🔍 System Diagnostics",
+from diagnostics import diagnostics_have_failures
+
+tab_labels = [
     "📊 Analytics Dashboard",
-    "📈 Admin Charts",
-])
+    "📈 Charts",
+]
+if diagnostics_have_failures():
+    tab_labels.append("🔍 System Diagnostics")
 
-# ===== TAB 1: DIAGNOSTICS =====
+tabs = st.tabs(tab_labels)
+tab1, tab2 = tabs[:2]
+tab3 = tabs[2] if len(tabs) == 3 else None
+
+# ===== TAB 1: DASHBOARD =====
 with tab1:
-    # Import and run diagnostics module
-    try:
-        # Add admin subdirectory to path
-        admin_path = os.path.join(os.path.dirname(__file__), 'admin')
-        sys.path.insert(0, admin_path)
-        
-        from diagnostics import show_diagnostics
-        show_diagnostics()
-        
-    except Exception as e:
-        st.error(f"❌ Failed to load diagnostics module: {e}")
-        import traceback
-        with st.expander("🔍 Error Details"):
-            st.code(traceback.format_exc())
-
-# ===== TAB 2: DASHBOARD =====
-with tab2:
     # Import and run dashboard module
     try:
-        # Add admin subdirectory to path
-        admin_path = os.path.join(os.path.dirname(__file__), 'admin')
-        sys.path.insert(0, admin_path)
-        
         from dashboard import show_dashboard
         show_dashboard()
         
@@ -120,8 +110,8 @@ with tab2:
         with st.expander("🔍 Error Details"):
             st.code(traceback.format_exc())
 
-# ===== TAB 3: ADMIN CHARTS =====
-with tab3:
+# ===== TAB 2: CHARTS =====
+with tab2:
     try:
         from charts import show_charts
         show_charts()
@@ -131,6 +121,18 @@ with tab3:
         import traceback
         with st.expander("🔍 Error Details"):
             st.code(traceback.format_exc())
+
+# ===== TAB 3: DIAGNOSTICS =====
+if tab3 is not None:
+    with tab3:
+        try:
+            from diagnostics import show_diagnostics
+            show_diagnostics()
+        except Exception as e:
+            st.error(f"❌ Failed to load diagnostics module: {e}")
+            import traceback
+            with st.expander("🔍 Error Details"):
+                st.code(traceback.format_exc())
 
 # ===== FOOTER =====
 st.markdown("---")
