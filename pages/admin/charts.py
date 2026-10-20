@@ -6,7 +6,7 @@ import streamlit as st
 
 def show_charts():
     """Display database-backed charts without tabular dashboard details."""
-    st.header("📈 Admin Charts")
+    st.header("📈 Charts")
     st.markdown("API usage trends, response status, and recurring failures.")
 
     try:

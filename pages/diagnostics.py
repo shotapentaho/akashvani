@@ -8,6 +8,39 @@ import pandas as pd
 import os
 import sys
 
+
+def diagnostics_have_failures():
+    """Return whether the core diagnostic checks currently have failures."""
+    try:
+        openai_key = st.secrets["openai"]["api_key"]
+        st.secrets["newsapi"]["api_key"]
+    except Exception:
+        return True
+
+    for module_name in ("openai", "httpx", "streamlit", "gtts", "requests"):
+        try:
+            __import__(module_name)
+        except Exception:
+            return True
+
+    try:
+        from openai import OpenAI
+        OpenAI(api_key=openai_key)
+    except Exception:
+        return True
+
+    try:
+        from utils.database import get_connection
+        conn = get_connection()
+        if conn is None:
+            return True
+        conn.close()
+    except Exception:
+        return True
+
+    return False
+
+
 def show_diagnostics():
     """Display system diagnostics"""
     
