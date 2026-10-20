@@ -79,23 +79,16 @@ with header_col2:
 
 st.markdown("---")
 
-# Add admin subdirectory to path for the tab modules.
-admin_path = os.path.join(os.path.dirname(__file__), 'admin')
-sys.path.insert(0, admin_path)
-
 # ===== TABS =====
-from pages.admin.diagnostics import diagnostics_have_failures
-
 tab_labels = [
     "📊 Analytics Dashboard",
     "📈 Charts",
+    "🔍 System Diagnostics",
 ]
-if diagnostics_have_failures():
-    tab_labels.append("🔍 System Diagnostics")
 
 tabs = st.tabs(tab_labels)
 tab1, tab2 = tabs[:2]
-tab3 = tabs[2] if len(tabs) == 3 else None
+tab3 = tabs[2]
 
 # ===== TAB 1: DASHBOARD =====
 with tab1:
@@ -113,7 +106,7 @@ with tab1:
 # ===== TAB 2: CHARTS =====
 with tab2:
     try:
-        from charts import show_charts
+        from pages.admin.charts import show_charts
         show_charts()
 
     except Exception as e:
@@ -123,16 +116,15 @@ with tab2:
             st.code(traceback.format_exc())
 
 # ===== TAB 3: DIAGNOSTICS =====
-if tab3 is not None:
-    with tab3:
-        try:
-            from pages.admin.diagnostics import show_diagnostics
-            show_diagnostics()
-        except Exception as e:
-            st.error(f"❌ Failed to load diagnostics module: {e}")
-            import traceback
-            with st.expander("🔍 Error Details"):
-                st.code(traceback.format_exc())
+with tab3:
+    try:
+        from pages.admin.diagnostics import show_diagnostics
+        show_diagnostics()
+    except Exception as e:
+        st.error(f"❌ Failed to load diagnostics module: {e}")
+        import traceback
+        with st.expander("🔍 Error Details"):
+            st.code(traceback.format_exc())
 
 # ===== FOOTER =====
 st.markdown("---")

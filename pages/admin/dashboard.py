@@ -4,6 +4,7 @@ Real-time monitoring and usage statistics
 """
 
 import streamlit as st
+import pandas as pd
 from datetime import datetime, timedelta, date
 
 def show_dashboard():
@@ -289,7 +290,7 @@ def show_dashboard():
     
     # ===== RECENT API CALLS =====
     st.markdown("---")
-    st.subheader("🔄 Recent API Calls (Last 50)")
+    st.subheader("🔄 API Calls")
     
     if DB_AVAILABLE:
         try:
@@ -297,23 +298,18 @@ def show_dashboard():
             if recent_conn:
                 cursor = recent_conn.cursor()
                 cursor.execute("""
-                    SELECT 
-                        api_name,
-                        query_text,
-                        response_status,
-                        articles_count,
-                        call_timestamp
-                    FROM api_calls
-                    ORDER BY call_timestamp DESC
-                    LIMIT 50
+                    SELECT *
+                    FROM public.api_calls
+                    ORDER BY call_timestamp DESC;
                 """)
                 
                 api_calls = cursor.fetchall()
+                columns = [description[0] for description in cursor.description]
                 cursor.close()
                 recent_conn.close()
                 
                 if api_calls:
-                    df_api = pd.DataFrame(api_calls, columns=['API', 'Query', 'Status', 'Articles', 'Timestamp'])
+                    df_api = pd.DataFrame(api_calls, columns=columns)
                     st.dataframe(df_api, use_container_width=True, height=300, hide_index=True)
                 else:
                     st.info("No API calls recorded yet")
