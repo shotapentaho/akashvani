@@ -84,7 +84,7 @@ admin_path = os.path.join(os.path.dirname(__file__), 'admin')
 sys.path.insert(0, admin_path)
 
 # ===== TABS =====
-from diagnostics import diagnostics_have_failures
+from pages.admin.diagnostics import diagnostics_have_failures
 
 tab_labels = [
     "📊 Analytics Dashboard",
@@ -101,7 +101,7 @@ tab3 = tabs[2] if len(tabs) == 3 else None
 with tab1:
     # Import and run dashboard module
     try:
-        from dashboard import show_dashboard
+        from pages.admin.dashboard import show_dashboard
         show_dashboard()
         
     except Exception as e:
@@ -126,7 +126,7 @@ with tab2:
 if tab3 is not None:
     with tab3:
         try:
-            from diagnostics import show_diagnostics
+            from pages.admin.diagnostics import show_diagnostics
             show_diagnostics()
         except Exception as e:
             st.error(f"❌ Failed to load diagnostics module: {e}")
