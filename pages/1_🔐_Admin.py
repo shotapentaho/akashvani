@@ -9,6 +9,11 @@ from datetime import datetime
 import os
 import sys
 
+try:
+    from st_keyup import st_keyup
+except ImportError:
+    st_keyup = None
+
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -34,12 +39,13 @@ def check_password():
     if "password_correct" not in st.session_state:
         # First run, show input for password
         st.markdown("### 🔐 Admin Access Required")
-        st.text_input(
-            "Enter Admin Password", 
-            type="password", 
-            on_change=password_entered, 
+        password_input = st_keyup if st_keyup is not None else st.text_input
+        password_input(
+            "Enter Admin Password",
+            type="password",
+            on_change=password_entered,
             key="admin_password",
-            placeholder="Enter password..."
+            placeholder="Enter password...",
         )
         #st.caption("⚠️ This area is restricted to administrators only")
         #st.info("💡 **Hint:** Check `.streamlit/secrets.toml` for the admin password")
@@ -47,12 +53,13 @@ def check_password():
     elif not st.session_state["password_correct"]:
         # Password incorrect, show input + error
         st.markdown("### 🔐 Admin Access Required")
-        st.text_input(
-            "Enter Admin Password", 
-            type="password", 
-            on_change=password_entered, 
+        password_input = st_keyup if st_keyup is not None else st.text_input
+        password_input(
+            "Enter Admin Password",
+            type="password",
+            on_change=password_entered,
             key="admin_password",
-            placeholder="Enter password..."
+            placeholder="Enter password...",
         )
         st.error("❌ Incorrect password. Access denied.")
         return False
