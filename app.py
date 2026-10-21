@@ -798,14 +798,14 @@ if auto_search or weather_selection_active:
                 with st.spinner(
                     "📡 Fetching news from backup source..."
                 ):
-                for search_query in search_queries:
-                    articles.extend(
-                        get_gnews_articles(
-                            search_query,
-                            gnews_api_key,
-                            top_k=results_count,
+                    for search_query in search_queries:
+                        articles.extend(
+                            get_gnews_articles(
+                                search_query,
+                                gnews_api_key,
+                                top_k=results_count,
+                            )
                         )
-                    )
 
                 deduplicated = {}
                 for article in articles:
