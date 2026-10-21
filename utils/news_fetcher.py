@@ -17,6 +17,8 @@ Full, self-contained news_fetcher with:
 - RATE LIMIT HANDLING: Better error messages and retry logic
 """  
 from typing import List, Dict, Optional, Any, Iterable  
+from html.parser import HTMLParser
+from urllib.parse import urljoin
 import requests  
 import streamlit as st  
 from requests.adapters import HTTPAdapter  
@@ -48,6 +50,7 @@ INTERNATIONAL_DOMAINS = [
     "thedailystar.net",
     #Cricket
     "espncricinfo.com",
+    "icc-cricket.com",
     # BBC
     "bbc.co.uk",
     "bbc.com",
@@ -70,6 +73,7 @@ INTERNATIONAL_DOMAINS = [
 
 # Cricket-specific domain
 CRICKET_DOMAIN = "espncricinfo.com"
+ICC_HIGHLIGHTS_URL = "https://www.icc-cricket.com/videos/category/highlighted-videos"
 
 def _requests_session_with_retries(
     total: int = 3,
@@ -156,6 +160,79 @@ def _enhance_cricket_query(query: str) -> str:
         q = f"{q} score"
     
     return q
+
+
+def _is_cricket_highlights_query(query: str) -> bool:
+    """Return whether a query asks for cricket highlight videos."""
+    q_lower = (query or "").lower()
+    return "cricket" in q_lower and any(
+        term in q_lower for term in ("highlight", "highlights", "video", "videos")
+    )
+
+
+class _ICCVideoLinkParser(HTMLParser):
+    """Extract video links and metadata from the ICC highlights page."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: List[tuple[str, str]] = []
+        self._href: Optional[str] = None
+        self._text: List[str] = []
+
+    def handle_starttag(self, tag: str, attrs: List[tuple[str, Optional[str]]]) -> None:
+        attributes = dict(attrs)
+        if tag == "a" and attributes.get("href"):
+            self._href = attributes["href"]
+            self._text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._href is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self._href is not None:
+            text = " ".join(" ".join(self._text).split())
+            href = urljoin(ICC_HIGHLIGHTS_URL, self._href)
+            if "/videos/" in href:
+                self.links.append((text, href))
+            self._href = None
+            self._text = []
+
+
+def _fetch_icc_highlight_articles(session: requests.Session) -> List[Dict]:
+    """Fetch ICC's official highlighted-videos page as news-style results."""
+    try:
+        response = session.get(
+            ICC_HIGHLIGHTS_URL,
+            timeout=10,
+            headers={"User-Agent": "akashvani-news-reader/1.0"},
+        )
+        response.raise_for_status()
+        parser = _ICCVideoLinkParser()
+        parser.feed(response.text)
+    except (requests.exceptions.RequestException, ValueError):
+        return []
+
+    links = list(dict.fromkeys(parser.links))
+    if not links:
+        links = [("ICC Cricket Highlights", ICC_HIGHLIGHTS_URL)]
+
+    now = datetime.utcnow().isoformat() + "Z"
+    articles = []
+    for title, url in links:
+        articles.append(
+            {
+                "title": title or "ICC Cricket Highlights",
+                "description": "Official cricket highlight videos from the International Cricket Council.",
+                "content": "",
+                "source": "International Cricket Council",
+                "publishedAt": now,
+                "author": "ICC",
+                "url": url,
+                "urlToImage": "",
+            }
+        )
+    return articles
 
 def _safe_date(iso_str: Optional[str]) -> str:
     """
@@ -517,6 +594,8 @@ def get_top_news(
 
     articles = _fetch(params_search)
     combined = articles
+    if _is_cricket_highlights_query(query):
+        combined.extend(_fetch_icc_highlight_articles(session))
 
     # Final check - if still no results
     if not combined:
