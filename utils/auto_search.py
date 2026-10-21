@@ -20,6 +20,9 @@ def normalize_query(query):
 def news_query_variants(query):
     """Return the original query and, when useful, a query without ``news``."""
     original = query or ""
+    if re.fullmatch(r"severe\s+weather", normalize_query(original), re.IGNORECASE):
+        return (original, "weather")
+
     if not re.search(r"\bnews\b", original, re.IGNORECASE):
         return (original,)
 
