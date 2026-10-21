@@ -19,7 +19,7 @@ def normalize_query(query):
 
 def news_query_variants(query):
     """Return the original query and, when useful, a query without ``news``."""
-    original = normalize_query(query)
+    original = query or ""
     if not re.search(r"\bnews\b", original, re.IGNORECASE):
         return (original,)
 

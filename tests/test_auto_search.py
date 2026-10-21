@@ -31,8 +31,8 @@ class AutoSearchTests(unittest.TestCase):
 
     def test_news_query_variants(self):
         self.assertEqual(
-            news_query_variants("Latest NEWS in India"),
-            ("Latest NEWS in India", "Latest in India"),
+            news_query_variants("  Latest NEWS in India  "),
+            ("  Latest NEWS in India  ", "Latest in India"),
         )
         self.assertEqual(news_query_variants("newspaper headlines"), ("newspaper headlines",))
         self.assertEqual(news_query_variants("news"), ("news",))
