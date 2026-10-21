@@ -11,6 +11,7 @@ from utils.auto_search import (
     should_auto_run,
 )
 from utils.translator import is_non_english_script, translate_query_to_english
+from utils.translator import get_ai_search_result
 
 
 class AutoSearchTests(unittest.TestCase):
@@ -64,6 +65,26 @@ class AutoSearchTests(unittest.TestCase):
 
         self.assertEqual(translate_query_to_english("अर्थव्यवस्था", client), "economy")
         client.chat.completions.create.assert_called_once()
+
+    def test_ai_search_fallback_returns_article(self):
+        client = Mock()
+        client.chat.completions.create.return_value.choices = [
+            Mock(message=Mock(content="An answer from OpenAI."))
+        ]
+
+        result = get_ai_search_result("technology", client)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["source"], "OpenAI")
+        self.assertEqual(result[0]["content"], "An answer from OpenAI.")
+
+    def test_ai_search_fallback_handles_empty_response(self):
+        client = Mock()
+        client.chat.completions.create.return_value.choices = [
+            Mock(message=Mock(content=""))
+        ]
+
+        self.assertEqual(get_ai_search_result("technology", client), [])
 
 
 if __name__ == "__main__":

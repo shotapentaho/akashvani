@@ -57,6 +57,7 @@ from utils.news_fetcher import (
 )
 from utils.translator import (
     translate_query_to_english,
+    get_ai_search_result,
     translate_to_language,
     get_ai_summary,
 )
@@ -800,7 +801,7 @@ if auto_search or weather_selection_active:
 
 
         # ===== FALLBACK TO GNEWS =====
-        if not articles and gnews_api_key and not service_error:
+        if not articles and gnews_api_key:
             try:
                 st.info("🔄 Switching to backup news source...")
 
@@ -870,6 +871,30 @@ if auto_search or weather_selection_active:
                 print(f"GNews error: {e}")
                 service_error = True
 
+
+        # ===== OPENAI FALLBACK =====
+        if not articles:
+            with st.spinner("🤖 Searching with AI..."):
+                articles = get_ai_search_result(news_query, client)
+
+            if articles:
+                api_used = "OpenAI"
+                service_error = False
+                st.info(
+                    "🤖 No recent articles were found. "
+                    "Here is an OpenAI-generated answer based on available knowledge."
+                )
+
+                if DB_TRACKING_ENABLED:
+                    try:
+                        track_api_call(
+                            "openai",
+                            query,
+                            "success",
+                            len(articles),
+                        )
+                    except Exception as e:
+                        print(f"Tracking error: {e}")
 
         # ===== NO RESULTS =====
         if not articles:

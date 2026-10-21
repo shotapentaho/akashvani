@@ -41,6 +41,45 @@ def translate_query_to_english(text: str, client) -> str:
         return text
 
 
+def get_ai_search_result(query: str, client):
+    """Return an OpenAI-backed result when the news providers have no results."""
+    if not query or client is None:
+        return []
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Answer the user's search query clearly and concisely. "
+                        "Use your available knowledge, state when information "
+                        "may be outdated, and do not invent sources or facts."
+                    ),
+                },
+                {"role": "user", "content": query},
+            ],
+            max_tokens=1000,
+            temperature=0.2,
+        )
+        content = response.choices[0].message.content.strip()
+        if not content:
+            return []
+
+        return [{
+            "title": f"AI result: {query}",
+            "description": content,
+            "content": content,
+            "source": "OpenAI",
+            "author": "OpenAI",
+            "url": "#",
+        }]
+    except Exception as e:
+        print(f"OpenAI search fallback error: {e}")
+        return []
+
+
 def translate_to_language(text: str, target_lang_code: str, client) -> str:
     """
     Translate text to target Indian language using OpenAI
