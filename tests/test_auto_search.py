@@ -4,7 +4,12 @@ import unittest
 from unittest.mock import Mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.auto_search import is_auto_eligible, query_fingerprint, should_auto_run
+from utils.auto_search import (
+    is_auto_eligible,
+    news_query_variants,
+    query_fingerprint,
+    should_auto_run,
+)
 from utils.translator import is_non_english_script, translate_query_to_english
 
 
@@ -23,6 +28,14 @@ class AutoSearchTests(unittest.TestCase):
     def test_fingerprint_normalizes(self):
         self.assertEqual(query_fingerprint(" Health  News ", "en"), query_fingerprint("health news", "en"))
         self.assertNotEqual(query_fingerprint("health", "en"), query_fingerprint("health", "hi"))
+
+    def test_news_query_variants(self):
+        self.assertEqual(
+            news_query_variants("Latest NEWS in India"),
+            ("Latest NEWS in India", "Latest in India"),
+        )
+        self.assertEqual(news_query_variants("newspaper headlines"), ("newspaper headlines",))
+        self.assertEqual(news_query_variants("news"), ("news",))
 
     def test_should_auto_run(self):
         fp = query_fingerprint("health", "en")
