@@ -56,6 +56,15 @@ _EXTRA_WORDS = {
     "update",
 }
 
+_NON_LOCATION_WORDS = {
+    "any",
+    "inclement",
+    "location",
+    "locations",
+    "severe",
+    "with",
+}
+
 _US_STATE_CODES = {
     "al": "alabama", "ak": "alaska", "az": "arizona", "ar": "arkansas",
     "ca": "california", "co": "colorado", "ct": "connecticut",
@@ -137,7 +146,8 @@ def _clean_location(value: str) -> str | None:
     if not re.search(r"[^\W\d_]", location):
         return None
 
-    if location.lower() in _EXTRA_WORDS:
+    location_words = set(re.findall(r"\b[a-z]+\b", location.lower()))
+    if location.lower() in _EXTRA_WORDS or location_words & _NON_LOCATION_WORDS:
         return None
 
     # Avoid treating long news sentences as place names.
