@@ -9,10 +9,37 @@ from gtts import gTTS
 from gtts.lang import tts_langs
 from io import BytesIO
 import streamlit as st
+import asyncio
 from typing import Optional
+
+try:
+    import edge_tts
+except ImportError:
+    edge_tts = None
 
 # Get list of gTTS supported languages
 SUPPORTED_TTS_LANGS = tts_langs()
+
+VOICE_OPTIONS = [
+    "Female (Current)",
+    "Male (Indian)",
+    "Indian Accent",
+]
+
+INDIAN_MALE_VOICES = {
+    "en": "en-IN-PrabhatNeural",
+    "hi": "hi-IN-MadhurNeural",
+    "bn": "bn-IN-BashkarNeural",
+    "gu": "gu-IN-NiranjanNeural",
+    "kn": "kn-IN-GaganNeural",
+    "ml": "ml-IN-MidhunNeural",
+    "mr": "mr-IN-ManoharNeural",
+    "pa": "pa-IN-OjasNeural",
+    "ta": "ta-IN-ValluvarNeural",
+    "te": "te-IN-MohanNeural",
+    "ur": "ur-IN-SalmanNeural",
+}
+
 
 def is_language_supported(language_code: str) -> bool:
     """
@@ -52,10 +79,27 @@ def calculate_speech_duration(text: str, slow: bool = False) -> float:
     seconds = minutes * 60
     return seconds
 
+def _edge_tts_audio(text: str, voice: str, slow: bool) -> BytesIO:
+    """Generate MP3 audio with a Microsoft Indian male voice."""
+    rate = "-20%" if slow else "+0%"
+
+    async def generate_audio() -> bytes:
+        communicator = edge_tts.Communicate(text, voice, rate=rate)
+        chunks = []
+        async for chunk in communicator.stream():
+            if chunk["type"] == "audio":
+                chunks.append(chunk["data"])
+        return b"".join(chunks)
+
+    audio_bytes = asyncio.run(generate_audio())
+    return BytesIO(audio_bytes)
+
+
 def text_to_speech(
     text: str,
     language_code: str = "en",
-    slow: bool = False
+    slow: bool = False,
+    voice: str = "Female (Current)",
 ) -> Optional[BytesIO]:
     """
     Convert text to speech using Google Text-to-Speech
@@ -64,6 +108,7 @@ def text_to_speech(
         text: Text to convert
         language_code: Language code (e.g., 'hi', 'ta', 'or')
         slow: If True, speak slowly (good for seniors)
+        voice: Voice style to use
     
     Returns:
         BytesIO object containing MP3 audio or None on error
@@ -88,10 +133,26 @@ def text_to_speech(
         seconds = int(estimated_duration % 60)
         st.info(f"🎵 Generating audio... ({word_count} words ≈ {minutes}m {seconds}s at {'Slow' if slow else 'Normal'} speed)")
         
-        # Generate TTS
-        tts = gTTS(text, lang=language_code, slow=slow)
-        mp3_fp = BytesIO()
-        tts.write_to_fp(mp3_fp)
+        # Generate male Indian voices with Edge TTS when selected.
+        if voice == "Male (Indian)":
+            male_voice = INDIAN_MALE_VOICES.get(language_code.lower())
+            if edge_tts is not None and male_voice:
+                mp3_fp = _edge_tts_audio(text, male_voice, slow)
+            else:
+                st.info(
+                    "ℹ️ A male Indian voice is not available for this "
+                    "language here, so the current voice is being used."
+                )
+                tts = gTTS(text, lang=language_code, slow=slow)
+                mp3_fp = BytesIO()
+                tts.write_to_fp(mp3_fp)
+        else:
+            # Google's co.in endpoint provides an Indian English accent.
+            tld = "co.in" if voice == "Indian Accent" else "com"
+            tts = gTTS(text, lang=language_code, slow=slow, tld=tld)
+            mp3_fp = BytesIO()
+            tts.write_to_fp(mp3_fp)
+
         mp3_fp.seek(0)
         
         # Show success message

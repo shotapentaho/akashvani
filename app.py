@@ -61,6 +61,7 @@ from utils.translator import (
     get_ai_summary,
 )
 from utils.tts_handler import (
+    VOICE_OPTIONS,
     text_to_speech,
     get_speech_speed_display,
     is_language_supported,
@@ -337,8 +338,8 @@ st.markdown("---")
 
 # ===== SETTINGS =====
 with st.container():
-    col_speed, col_duration, col_articles, col_ai = st.columns(
-        [1, 1.2, 1, 1.2]
+    col_speed, col_voice, col_duration, col_articles, col_ai = st.columns(
+        [1, 1.4, 1.2, 1, 1.2]
     )
 
     with col_speed:
@@ -347,6 +348,16 @@ with st.container():
             ["Normal ⚡", "Slow 🐢"],
             index=1,
             help="Slow is recommended for seniors",
+        )
+
+    with col_voice:
+        voice_selection = st.selectbox(
+            "Voice",
+            VOICE_OPTIONS,
+            help=(
+                "Male (Indian) uses an Indian male voice. "
+                "Indian Accent applies the Indian English voice."
+            ),
         )
 
     with col_duration:
@@ -434,6 +445,7 @@ _fingerprint = query_fingerprint(
     results_count,
     duration_key,
     speech_speed,
+    voice_selection,
     use_ai_summary,
 )
 
@@ -661,6 +673,7 @@ if auto_search or weather_selection_active:
                     english_weather_text,
                     "en",
                     slow=slow_mode,
+                    voice=voice_selection,
                 )
 
                 if audio_en:
@@ -696,6 +709,7 @@ if auto_search or weather_selection_active:
                             translated_weather,
                             language_code,
                             slow=slow_mode,
+                            voice=voice_selection,
                         )
 
                         if audio_translated:
@@ -945,6 +959,7 @@ if auto_search or weather_selection_active:
                                     english_score_text,
                                     "en",
                                     slow=slow_mode,
+                                    voice=voice_selection,
                                 )
 
                                 if audio_en:
@@ -995,6 +1010,7 @@ if auto_search or weather_selection_active:
                                                 score_text_translated,
                                                 language_code,
                                                 slow=slow_mode,
+                                                voice=voice_selection,
                                             )
                                         )
 
@@ -1095,6 +1111,7 @@ if auto_search or weather_selection_active:
                                     score_text,
                                     "en",
                                     slow=slow_mode,
+                                    voice=voice_selection,
                                 )
 
                                 if audio_en:
@@ -1140,6 +1157,7 @@ if auto_search or weather_selection_active:
                                                 score_text_translated,
                                                 language_code,
                                                 slow=slow_mode,
+                                                voice=voice_selection,
                                             )
                                         )
 
@@ -1295,6 +1313,7 @@ if auto_search or weather_selection_active:
                                         audio_content,
                                         language_code,
                                         slow=slow_mode,
+                                        voice=voice_selection,
                                     )
 
                                     if audio:
