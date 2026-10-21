@@ -351,10 +351,10 @@ with st.container():
         )
 
     with col_voice:
-        voice_selection = st.selectbox(
+        voice_selection = st.select_slider(
             "Voice",
             VOICE_OPTIONS,
-            help="Indian Accent applies the Indian English voice.",
+            help="Choose a female or male Indian-accented voice.",
         )
 
     with col_duration:

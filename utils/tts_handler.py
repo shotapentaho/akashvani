@@ -21,9 +21,23 @@ except ImportError:
 SUPPORTED_TTS_LANGS = tts_langs()
 
 VOICE_OPTIONS = [
-    "Default",
-    "Indian Accent",
+    "Female",
+    "Male",
 ]
+
+INDIAN_FEMALE_VOICES = {
+    "en": "en-IN-NeerjaNeural",
+    "hi": "hi-IN-SwaraNeural",
+    "bn": "bn-IN-TanishaaNeural",
+    "gu": "gu-IN-DhwaniNeural",
+    "kn": "kn-IN-SapnaNeural",
+    "ml": "ml-IN-SobhanaNeural",
+    "mr": "mr-IN-AarohiNeural",
+    "pa": "pa-IN-VaaniNeural",
+    "ta": "ta-IN-PallaviNeural",
+    "te": "te-IN-ShrutiNeural",
+    "ur": "ur-IN-GulNeural",
+}
 
 INDIAN_MALE_VOICES = {
     "en": "en-IN-PrabhatNeural",
@@ -132,23 +146,19 @@ def text_to_speech(
         seconds = int(estimated_duration % 60)
         st.info(f"🎵 Generating audio... ({word_count} words ≈ {minutes}m {seconds}s at {'Slow' if slow else 'Normal'} speed)")
         
-        # Generate male Indian voices with Edge TTS when selected.
-        if voice == "Male (Indian)":
-            male_voice = INDIAN_MALE_VOICES.get(language_code.lower())
-            if edge_tts is not None and male_voice:
-                mp3_fp = _edge_tts_audio(text, male_voice, slow)
-            else:
-                st.info(
-                    "ℹ️ A male Indian voice is not available for this "
-                    "language here, so the current voice is being used."
-                )
-                tts = gTTS(text, lang=language_code, slow=slow)
-                mp3_fp = BytesIO()
-                tts.write_to_fp(mp3_fp)
+        # Generate Indian voices with Edge TTS when available.
+        indian_voices = (
+            INDIAN_MALE_VOICES if voice == "Male" else INDIAN_FEMALE_VOICES
+        )
+        indian_voice = indian_voices.get(language_code.lower())
+        if edge_tts is not None and indian_voice:
+            mp3_fp = _edge_tts_audio(text, indian_voice, slow)
         else:
-            # Google's co.in endpoint provides an Indian English accent.
-            tld = "co.in" if voice == "Indian Accent" else "com"
-            tts = gTTS(text, lang=language_code, slow=slow, tld=tld)
+            st.info(
+                "ℹ️ The selected Indian voice is not available for this "
+                "language here, so the current voice is being used."
+            )
+            tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
             mp3_fp = BytesIO()
             tts.write_to_fp(mp3_fp)
 
