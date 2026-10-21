@@ -339,7 +339,7 @@ st.markdown("---")
 # ===== SETTINGS =====
 with st.container():
     col_speed, col_voice, col_duration, col_articles, col_ai = st.columns(
-        [1, 1.4, 1.2, 1, 1.2]
+         [.5, .5, 1.2, 1, 1]
     )
 
     with col_speed:
@@ -351,7 +351,7 @@ with st.container():
         )
 
     with col_voice:
-        voice_selection = st.select_slider(
+        voice_selection = st.radio(
             "Voice",
             VOICE_OPTIONS,
             help="Choose a female or male Indian-accented voice.",
