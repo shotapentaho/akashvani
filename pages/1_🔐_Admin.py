@@ -14,6 +14,8 @@ try:
 except ImportError:
     st_keyup = None
 
+PASSWORD_DEBOUNCE_MS = 500
+
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -32,35 +34,32 @@ def check_password():
         """Checks whether a password entered by the user is correct."""
         if st.session_state["admin_password"] == st.secrets.get("admin", {}).get("password", "admin123"):
             st.session_state["password_correct"] = True
-            del st.session_state["admin_password"]  # Don't store password
         else:
             st.session_state["password_correct"] = False
+
+    def render_password_input():
+        password_input = st_keyup if st_keyup is not None else st.text_input
+        password_options = {
+            "type": "password",
+            "on_change": password_entered,
+            "key": "admin_password",
+            "placeholder": "Enter password...",
+        }
+        if st_keyup is not None:
+            password_options["debounce"] = PASSWORD_DEBOUNCE_MS
+        password_input("Enter Admin Password", **password_options)
 
     if "password_correct" not in st.session_state:
         # First run, show input for password
         st.markdown("### 🔐 Admin Access Required")
-        password_input = st_keyup if st_keyup is not None else st.text_input
-        password_input(
-            "Enter Admin Password",
-            type="password",
-            on_change=password_entered,
-            key="admin_password",
-            placeholder="Enter password...",
-        )
+        render_password_input()
         #st.caption("⚠️ This area is restricted to administrators only")
         #st.info("💡 **Hint:** Check `.streamlit/secrets.toml` for the admin password")
         return False
     elif not st.session_state["password_correct"]:
         # Password incorrect, show input + error
         st.markdown("### 🔐 Admin Access Required")
-        password_input = st_keyup if st_keyup is not None else st.text_input
-        password_input(
-            "Enter Admin Password",
-            type="password",
-            on_change=password_entered,
-            key="admin_password",
-            placeholder="Enter password...",
-        )
+        render_password_input()
         st.error("❌ Incorrect password. Access denied.")
         return False
     else:
