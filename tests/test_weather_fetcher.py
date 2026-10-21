@@ -31,7 +31,9 @@ class ExtractWeatherLocationTests(unittest.TestCase):
     def test_non_weather_or_no_location(self):
         for query in [
             "", None, "weather", "weather in", "temperature at ?", "India election news",
-            "weather forecast", "weather news", "climate change and weather patterns hurting farmers in India",
+            "weather forecast", "weather news",
+            "any location with inclement weather",
+            "climate change and weather patterns hurting farmers in India",
         ]:
             self.assertIsNone(extract_weather_location(query), query)
 
