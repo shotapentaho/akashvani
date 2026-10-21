@@ -21,8 +21,7 @@ except ImportError:
 SUPPORTED_TTS_LANGS = tts_langs()
 
 VOICE_OPTIONS = [
-    "Female (Current)",
-    "Male (Indian)",
+    "Default",
     "Indian Accent",
 ]
 
@@ -99,7 +98,7 @@ def text_to_speech(
     text: str,
     language_code: str = "en",
     slow: bool = False,
-    voice: str = "Female (Current)",
+    voice: str = "Default",
 ) -> Optional[BytesIO]:
     """
     Convert text to speech using Google Text-to-Speech

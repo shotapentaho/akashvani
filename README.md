@@ -50,8 +50,7 @@
 ### 🎧 **Text-to-Speech (TTS)**
 - Google Text-to-Speech (gTTS) integration
 - Two speed modes: Normal ⚡ and Slow 🐢
-- Voice choices: Female (Current), Male (Indian), and Indian Accent
-- Indian male voices are available for supported Indian languages through Edge TTS
+- Voice choices: Default and Indian Accent
 - High-quality voice output for all 12 languages
 - Optimized for senior citizens' listening comfort
 

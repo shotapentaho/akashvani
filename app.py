@@ -354,10 +354,7 @@ with st.container():
         voice_selection = st.selectbox(
             "Voice",
             VOICE_OPTIONS,
-            help=(
-                "Male (Indian) uses an Indian male voice. "
-                "Indian Accent applies the Indian English voice."
-            ),
+            help="Indian Accent applies the Indian English voice.",
         )
 
     with col_duration:
