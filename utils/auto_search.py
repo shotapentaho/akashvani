@@ -17,6 +17,18 @@ def normalize_query(query):
     return re.sub(r"\s+", " ", query or "").strip()
 
 
+def news_query_variants(query):
+    """Return the original query and, when useful, a query without ``news``."""
+    original = query or ""
+    if not re.search(r"\bnews\b", original, re.IGNORECASE):
+        return (original,)
+
+    without_news = normalize_query(
+        re.sub(r"\bnews\b", "", original, flags=re.IGNORECASE)
+    )
+    return (original,) if not without_news else (original, without_news)
+
+
 def is_auto_eligible(query):
     """True if a query is meaningful enough to run without a manual click."""
     q = normalize_query(query).strip(" ?.,!;:")

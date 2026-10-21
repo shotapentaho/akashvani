@@ -74,6 +74,7 @@ from utils.weather_fetcher import (
 )
 from utils.auto_search import (
     DEBOUNCE_MS,
+    news_query_variants,
     query_fingerprint,
     should_auto_run,
 )
@@ -723,17 +724,28 @@ if auto_search or weather_selection_active:
         api_used = "NewsAPI"
         service_error = False
         news_query = translate_query_to_english(query, client)
+        search_queries = news_query_variants(news_query)
 
         # ===== TRY NEWSAPI FIRST =====
         try:
             with st.spinner(
                 f"📡 Fetching news for '{query}'..."
             ):
-                articles = get_top_news(
-                    news_query,
-                    news_api_key,
-                    top_k=results_count,
-                )
+                for search_query in search_queries:
+                    articles.extend(
+                        get_top_news(
+                            search_query,
+                            news_api_key,
+                            top_k=results_count,
+                        )
+                    )
+
+                deduplicated = {}
+                for article in articles:
+                    key = article.get("url") or article.get("title")
+                    if key and key not in deduplicated:
+                        deduplicated[key] = article
+                articles = list(deduplicated.values())[:results_count]
 
             if articles:
                 api_used = "NewsAPI"
@@ -786,11 +798,21 @@ if auto_search or weather_selection_active:
                 with st.spinner(
                     "📡 Fetching news from backup source..."
                 ):
-                    articles = get_gnews_articles(
-                        news_query,
-                        gnews_api_key,
-                        top_k=results_count,
+                for search_query in search_queries:
+                    articles.extend(
+                        get_gnews_articles(
+                            search_query,
+                            gnews_api_key,
+                            top_k=results_count,
+                        )
                     )
+
+                deduplicated = {}
+                for article in articles:
+                    key = article.get("url") or article.get("title")
+                    if key and key not in deduplicated:
+                        deduplicated[key] = article
+                articles = list(deduplicated.values())[:results_count]
 
                 if articles:
                     api_used = "GNews"
