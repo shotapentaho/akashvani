@@ -47,6 +47,11 @@
 - IPL team support: RCB, CSK, MI, KKR, and more
 - Spoken cricket scores in 12 languages
 
+### 🎵 **Language Song Search**
+- Search for songs by language, artist, or title, such as “Malayalam songs”
+- Provides direct links to matching music videos
+- Uses the optional SerpAPI integration without sending song queries to the news APIs
+
 ### 🎧 **Text-to-Speech (TTS)**
 - Google Text-to-Speech (gTTS) integration
 - Two speed modes: Normal ⚡ and Slow 🐢
