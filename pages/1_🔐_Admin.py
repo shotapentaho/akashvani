@@ -30,41 +30,37 @@ st.set_page_config(
 def check_password():
     """Returns True if the user had the correct password."""
     
-    def password_entered():
+    def password_entered(password):
         """Checks whether a password entered by the user is correct."""
-        if st.session_state["admin_password"] == st.secrets.get("admin", {}).get("password", "admin123"):
-            st.session_state["password_correct"] = True
-        else:
-            st.session_state["password_correct"] = False
+        st.session_state["password_correct"] = (
+            password == st.secrets.get("admin", {}).get("password", "admin123")
+        )
 
     def render_password_input():
         password_input = st_keyup if st_keyup is not None else st.text_input
         password_options = {
             "type": "password",
-            "on_change": password_entered,
             "key": "admin_password",
             "placeholder": "Enter password...",
         }
         if st_keyup is not None:
             password_options["debounce"] = PASSWORD_DEBOUNCE_MS
-        password_input("Enter Admin Password", **password_options)
+        return password_input("Enter Admin Password", **password_options)
 
-    if "password_correct" not in st.session_state:
-        # First run, show input for password
+    if not st.session_state.get("password_correct", False):
         st.markdown("### 🔐 Admin Access Required")
-        render_password_input()
+        password = render_password_input()
+        if password:
+            password_entered(password)
+            if st.session_state["password_correct"]:
+                return True
         #st.caption("⚠️ This area is restricted to administrators only")
         #st.info("💡 **Hint:** Check `.streamlit/secrets.toml` for the admin password")
+        if "password_correct" in st.session_state:
+            st.error("❌ Incorrect password. Access denied.")
         return False
-    elif not st.session_state["password_correct"]:
-        # Password incorrect, show input + error
-        st.markdown("### 🔐 Admin Access Required")
-        render_password_input()
-        st.error("❌ Incorrect password. Access denied.")
-        return False
-    else:
-        # Password correct
-        return True
+
+    return True
 
 if not check_password():
     st.stop()
