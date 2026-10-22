@@ -7,6 +7,7 @@ from utils.song_fetcher import get_song_results, is_song_query
 class SongFetcherTests(unittest.TestCase):
     def test_song_query_detection(self):
         self.assertTrue(is_song_query("Malayalam song"))
+        self.assertTrue(is_song_query("Malayalam songs."))
         self.assertTrue(is_song_query("Tamil music"))
         self.assertFalse(is_song_query("Malayalam news"))
 

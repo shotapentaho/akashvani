@@ -1,5 +1,6 @@
 """Search utilities for music requests."""
 
+import re
 from typing import Dict, List
 
 import requests
@@ -7,9 +8,12 @@ import requests
 
 def is_song_query(query: str) -> bool:
     """Return whether a query explicitly asks for songs or music."""
-    return any(
-        word in (query or "").lower().split()
-        for word in ("song", "songs", "music")
+    return bool(
+        re.search(
+            r"\b(?:song|songs|music)\b",
+            query or "",
+            re.IGNORECASE,
+        )
     )
 
 
