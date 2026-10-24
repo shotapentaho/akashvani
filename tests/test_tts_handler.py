@@ -1,10 +1,11 @@
+import base64
 import os
 import sys
 import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.tts_handler import _get_gemini_api_key
+from utils.tts_handler import _extract_gemini_audio, _get_gemini_api_key
 
 
 class GeminiApiKeyTests(unittest.TestCase):
@@ -22,3 +23,48 @@ class GeminiApiKeyTests(unittest.TestCase):
         with patch("utils.tts_handler.st.secrets", {}):
             with patch.dict(os.environ, {}, clear=True):
                 self.assertIsNone(_get_gemini_api_key())
+
+
+class GeminiAudioResponseTests(unittest.TestCase):
+    def test_finds_audio_after_non_audio_parts(self):
+        audio_data = b"pcm-audio"
+        response = {
+            "candidates": [{
+                "content": {
+                    "parts": [
+                        {"text": "ignored"},
+                        {
+                            "inlineData": {
+                                "data": base64.b64encode(audio_data).decode(),
+                                "mimeType": "audio/L16",
+                            }
+                        },
+                    ]
+                }
+            }]
+        }
+
+        self.assertEqual(
+            _extract_gemini_audio(response),
+            (audio_data, "audio/l16"),
+        )
+
+    def test_accepts_snake_case_inline_data(self):
+        audio_data = b"wav-audio"
+        response = {
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "inline_data": {
+                            "data": base64.b64encode(audio_data).decode(),
+                            "mime_type": "audio/wav",
+                        }
+                    }]
+                }
+            }]
+        }
+
+        self.assertEqual(
+            _extract_gemini_audio(response),
+            (audio_data, "audio/wav"),
+        )
