@@ -57,7 +57,9 @@ INDIAN_MALE_VOICES = {
     "ur": "ur-IN-SalmanNeural",
 }
 
-GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"
+# Gemini's public native-audio preview model supports multilingual speech,
+# including Odia, while gTTS does not.
+GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
 GEMINI_TTS_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     "{model}:generateContent"

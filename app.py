@@ -65,7 +65,6 @@ from utils.tts_handler import (
     VOICE_OPTIONS,
     text_to_speech,
     get_speech_speed_display,
-    is_language_supported,
 )
 from utils.cricket_scraper import extract_score_from_article
 from utils.weather_fetcher import (
@@ -720,23 +719,22 @@ if auto_search or weather_selection_active:
                     )
                     st.success(translated_weather)
 
-                    if is_language_supported(language_code):
-                        st.write(
-                            f"**🔊 Listen in {selected_language}:**"
-                        )
+                    st.write(
+                        f"**🔊 Listen in {selected_language}:**"
+                    )
 
-                        audio_translated = text_to_speech(
-                            translated_weather,
-                            language_code,
-                            slow=slow_mode,
-                            voice=voice_selection,
-                        )
+                    audio_translated = text_to_speech(
+                        translated_weather,
+                        language_code,
+                        slow=slow_mode,
+                        voice=voice_selection,
+                    )
 
-                        if audio_translated:
-                            st.audio(
-                                audio_translated,
-                                format="audio/mp3",
-                            )
+                    if audio_translated:
+                        st.audio(
+                            audio_translated,
+                            format="audio/mp3",
+                        )
                     else:
                         st.info(
                             f"Voice narration not available "
@@ -1249,27 +1247,23 @@ if auto_search or weather_selection_active:
                                     )
                                     st.success(score_text_translated)
 
-                                    tts_available = (
-                                        is_language_supported(
-                                            language_code
-                                        )
+                                    audio_translated = text_to_speech(
+                                        score_text_translated,
+                                        language_code,
+                                        slow=slow_mode,
+                                        voice=voice_selection,
                                     )
 
-                                    if tts_available:
-                                        audio_translated = (
-                                            text_to_speech(
-                                                score_text_translated,
-                                                language_code,
-                                                slow=slow_mode,
-                                                voice=voice_selection,
-                                            )
+                                    if audio_translated:
+                                        st.audio(
+                                            audio_translated,
+                                            format="audio/mp3",
                                         )
-
-                                        if audio_translated:
-                                            st.audio(
-                                                audio_translated,
-                                                format="audio/mp3",
-                                            )
+                                    else:
+                                        st.info(
+                                            "Voice narration not available "
+                                            f"for {selected_language}"
+                                        )
 
                                 except Exception as e:
                                     print(
@@ -1304,14 +1298,6 @@ if auto_search or weather_selection_active:
             )
 
             st.markdown("---")
-
-            tts_available = is_language_supported(language_code)
-
-            if not tts_available:
-                st.info(
-                    f"📝 Text-only mode: Voice narration not available "
-                    f"for {selected_language}"
-                )
 
             for idx, article in enumerate(articles, 1):
                 try:
@@ -1400,55 +1386,43 @@ if auto_search or weather_selection_active:
                                 st.success(audio_content)
                                 st.markdown("---")
 
-                            if tts_available:
-                                st.write(
-                                    f"**🔊 Listen to this article in "
-                                    f"{selected_language}:**"
+                            st.write(
+                                f"**🔊 Listen to this article in "
+                                f"{selected_language}:**"
+                            )
+
+                            pcol1, pcol2, pcol3 = st.columns(
+                                [3, 1, 1]
+                            )
+
+                            with pcol1:
+                                slow_mode = speech_speed == "Slow 🐢"
+
+                                audio = text_to_speech(
+                                    audio_content,
+                                    language_code,
+                                    slow=slow_mode,
+                                    voice=voice_selection,
                                 )
 
-                                pcol1, pcol2, pcol3 = st.columns(
-                                    [3, 1, 1]
+                                if audio:
+                                    st.audio(
+                                        audio,
+                                        format="audio/mp3",
+                                    )
+                                else:
+                                    st.info(
+                                        "📝 Voice narration not available "
+                                        f"for {selected_language}"
+                                    )
+
+                            with pcol2:
+                                st.caption(
+                                    f"Speed: "
+                                    f"{get_speech_speed_display(slow_mode)}"
                                 )
 
-                                with pcol1:
-                                    slow_mode = speech_speed == "Slow 🐢"
-
-                                    audio = text_to_speech(
-                                        audio_content,
-                                        language_code,
-                                        slow=slow_mode,
-                                        voice=voice_selection,
-                                    )
-
-                                    if audio:
-                                        st.audio(
-                                            audio,
-                                            format="audio/mp3",
-                                        )
-
-                                with pcol2:
-                                    st.caption(
-                                        f"Speed: "
-                                        f"{get_speech_speed_display(slow_mode)}"
-                                    )
-
-                                with pcol3:
-                                    article_url = (
-                                        formatted_article.get("url")
-                                        or "#"
-                                    )
-
-                                    if article_url != "#":
-                                        st.caption(
-                                            f"[🔗 Source]({article_url})"
-                                        )
-
-                            else:
-                                st.info(
-                                    "📝 Voice narration not available "
-                                    f"for {selected_language}"
-                                )
-
+                            with pcol3:
                                 article_url = (
                                     formatted_article.get("url")
                                     or "#"
