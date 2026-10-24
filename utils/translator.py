@@ -21,7 +21,7 @@ def translate_query_to_english(text: str, client) -> str:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
@@ -48,7 +48,7 @@ def get_ai_search_result(query: str, client):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
@@ -99,7 +99,7 @@ def translate_to_language(text: str, target_lang_code: str, client) -> str:
     
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
@@ -172,7 +172,7 @@ REQUIREMENTS:
 Return ONLY the summary text, nothing else."""
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",

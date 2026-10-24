@@ -114,7 +114,7 @@ Show user-friendly error
 
 ### 🙏 Acknowledgments
 - Streamlit for the amazing framework
-- OpenAI for GPT-3.5 API
+- OpenAI for GPT-4o mini API
 - NewsAPI for reliable news data
 - GNews for backup news source
 - gTTS for text-to-speech capabilities

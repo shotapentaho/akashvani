@@ -191,7 +191,7 @@ streamlit run app.py
     try:
         with st.spinner("Making test API call..."):
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "Say 'test successful' in exactly 2 words"}],
                 max_tokens=10
             )
