@@ -67,6 +67,8 @@ To enable the Gemini fallback, add a Google AI API key to Streamlit secrets:
 api_key = "your-google-ai-api-key"
 ```
 
+Alternatively, set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in the deployment environment.
+
 ### 📱 **Senior-Friendly UI**
 - Large, readable fonts (18px base)
 - High contrast colors for better visibility

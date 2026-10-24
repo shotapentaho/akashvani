@@ -97,6 +97,20 @@ def show_diagnostics():
     except Exception as e:
         diagnostics.append(("⚠️", "SerpAPI key", str(e)))
         st.warning(f"⚠️ SerpAPI key: `{e}`")
+
+    try:
+        from utils.tts_handler import _get_gemini_api_key
+
+        gemini_key = _get_gemini_api_key()
+        if gemini_key:
+            diagnostics.append(("✅", "Gemini TTS API key", f"{gemini_key[:10]}...{gemini_key[-4:]}"))
+            st.success(f"✅ Gemini TTS API key: `{gemini_key[:10]}...{gemini_key[-4:]}`")
+        else:
+            diagnostics.append(("⚠️", "Gemini TTS API key", "Not configured (optional; required for Odia speech)"))
+            st.info("⚠️ Gemini TTS API key: Not configured (optional; required for Odia speech)")
+    except Exception as e:
+        diagnostics.append(("⚠️", "Gemini TTS API key", str(e)))
+        st.warning(f"⚠️ Gemini TTS API key: `{e}`")
     
     st.markdown("---")
     
