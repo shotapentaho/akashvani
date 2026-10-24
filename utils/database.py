@@ -38,6 +38,30 @@ def get_table_columns(cursor, table_name):
     return [row[0] for row in cursor.fetchall()]
 
 
+def get_supported_languages():
+    """Load language display names from the akashvani_languages table."""
+    conn = get_connection()
+    if not conn:
+        return []
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT language, tts_language
+            FROM akashvani_languages
+            ORDER BY sequence_id
+        """)
+        return cursor.fetchall()
+    except Exception as e:
+        print(f"❌ Language lookup error: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        conn.close()
+
+
 def track_api_call(api_name: str, query_text: str, response_status: str, articles_count: int = 0):
     """Track API call in database (insert-only)"""
     try:
