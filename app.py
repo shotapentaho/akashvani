@@ -95,6 +95,7 @@ DB_TRACKING_ENABLED = False
 
 try:
     from utils.database import (
+        get_supported_languages,
         track_api_call,
         track_search_query,
         track_user_session,
@@ -105,6 +106,7 @@ try:
 
 except Exception:
     print("⚠️ DATABASE TRACKING DISABLED")
+    get_supported_languages = None
 
 
 # ===== HIDE DEFAULT STREAMLIT ELEMENTS =====
@@ -297,9 +299,28 @@ with left_col:
 with center_col:
     st.markdown("")
 
+    language_rows = (
+        get_supported_languages() if get_supported_languages else []
+    )
+    if language_rows:
+        language_options = [
+            f"{language} ({tts_language})"
+            for language, tts_language in language_rows
+        ]
+        language_codes = {
+            f"{language} ({tts_language})": INDIAN_LANGUAGES.get(
+                language,
+                "en",
+            )
+            for language, tts_language in language_rows
+        }
+    else:
+        language_options = get_all_languages()
+        language_codes = INDIAN_LANGUAGES
+
     selected_language = st.selectbox(
         "Select Language",
-        get_all_languages(),
+        language_options,
         index=0,
         key="header_language_select",
         label_visibility="collapsed",
@@ -311,7 +332,7 @@ with right_col:
     st.markdown("")
 
 
-language_code = INDIAN_LANGUAGES[selected_language]
+language_code = language_codes[selected_language]
 lang_info = get_language_info(language_code)
 
 
