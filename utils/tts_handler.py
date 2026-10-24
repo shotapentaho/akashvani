@@ -159,38 +159,58 @@ def _pcm_to_wav_audio(audio_bytes: bytes, sample_rate: int = 24000) -> BytesIO:
     return audio
 
 
+def _gemini_no_audio_error(response_data: Mapping) -> RuntimeError:
+    """Describe why a Gemini response did not contain usable audio."""
+    candidates = response_data.get("candidates", [])
+    finish_reasons = [
+        candidate.get("finishReason")
+        for candidate in candidates
+        if isinstance(candidate, Mapping) and candidate.get("finishReason")
+    ]
+    prompt_feedback = response_data.get("promptFeedback")
+    details = []
+    if finish_reasons:
+        details.append(f"finishReason={','.join(map(str, finish_reasons))}")
+    if isinstance(prompt_feedback, Mapping):
+        block_reason = prompt_feedback.get("blockReason")
+        if block_reason:
+            details.append(f"blockReason={block_reason}")
+    details.append(f"responseKeys={','.join(sorted(map(str, response_data.keys())))}")
+    return RuntimeError(f"Gemini returned no audio data ({'; '.join(details)})")
+
+
+def _iter_gemini_inline_data(value: object):
+    """Yield inline data objects from nested Gemini response values."""
+    if isinstance(value, Mapping):
+        for key in ("inlineData", "inline_data"):
+            inline_data = value.get(key)
+            if isinstance(inline_data, Mapping):
+                yield inline_data
+        for child in value.values():
+            yield from _iter_gemini_inline_data(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _iter_gemini_inline_data(child)
+
+
 def _extract_gemini_audio(response_data: Mapping) -> tuple[bytes, str]:
     """Find and decode the audio inline part in a Gemini response."""
-    candidates = response_data.get("candidates", [])
-    if not isinstance(candidates, list):
-        raise RuntimeError("Gemini returned no audio data")
+    for inline_data in _iter_gemini_inline_data(response_data):
+        encoded_data = inline_data.get("data")
+        if not isinstance(encoded_data, str) or not encoded_data:
+            continue
+        try:
+            audio_bytes = base64.b64decode(encoded_data, validate=True)
+        except (binascii.Error, ValueError, TypeError) as error:
+            raise RuntimeError("Gemini returned invalid audio data") from error
+        if audio_bytes:
+            return audio_bytes, str(
+                inline_data.get("mimeType")
+                or inline_data.get("mime_type")
+                or ""
+            ).lower()
 
-    for candidate in candidates:
-        if not isinstance(candidate, Mapping):
-            continue
-        content = candidate.get("content", {})
-        if not isinstance(content, Mapping):
-            continue
-        parts = content.get("parts", [])
-        if not isinstance(parts, list):
-            continue
-        for part in parts:
-            if not isinstance(part, Mapping):
-                continue
-            inline_data = part.get("inlineData") or part.get("inline_data")
-            if not isinstance(inline_data, Mapping):
-                continue
-            encoded_data = inline_data.get("data")
-            if not isinstance(encoded_data, str) or not encoded_data:
-                continue
-            try:
-                audio_bytes = base64.b64decode(encoded_data, validate=True)
-            except (binascii.Error, ValueError, TypeError) as error:
-                raise RuntimeError("Gemini returned invalid audio data") from error
-            if audio_bytes:
-                return audio_bytes, str(inline_data.get("mimeType") or inline_data.get("mime_type") or "").lower()
-
-    raise RuntimeError("Gemini returned no audio data")
+    raise _gemini_no_audio_error(response_data)
 
 
 def _gemini_tts_audio(
