@@ -72,6 +72,24 @@ class GeminiAudioResponseTests(unittest.TestCase):
             (audio_data, "audio/wav"),
         )
 
+    def test_finds_audio_in_nested_response_data(self):
+        audio_data = b"nested-audio"
+        response = {
+            "result": {
+                "parts": [{
+                    "inline_data": {
+                        "data": base64.b64encode(audio_data).decode(),
+                        "mime_type": "audio/L16",
+                    }
+                }]
+            }
+        }
+
+        self.assertEqual(
+            _extract_gemini_audio(response),
+            (audio_data, "audio/l16"),
+        )
+
     def test_includes_blocking_details_when_audio_is_missing(self):
         response = {
             "candidates": [{"finishReason": "SAFETY"}],
