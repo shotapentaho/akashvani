@@ -1,0 +1,24 @@
+import os
+import sys
+import unittest
+from unittest.mock import patch
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.tts_handler import _get_gemini_api_key
+
+
+class GeminiApiKeyTests(unittest.TestCase):
+    def test_reads_nested_streamlit_secret(self):
+        with patch("utils.tts_handler.st.secrets", {"gemini": {"api_key": "  nested-key  "}}):
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(_get_gemini_api_key(), "nested-key")
+
+    def test_reads_top_level_gemini_environment_variable(self):
+        with patch("utils.tts_handler.st.secrets", {}):
+            with patch.dict(os.environ, {"GEMINI_API_KEY": "  environment-key  "}, clear=True):
+                self.assertEqual(_get_gemini_api_key(), "environment-key")
+
+    def test_returns_none_when_no_key_is_configured(self):
+        with patch("utils.tts_handler.st.secrets", {}):
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertIsNone(_get_gemini_api_key())

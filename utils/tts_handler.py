@@ -14,6 +14,7 @@ import base64
 import os
 import wave
 import requests
+from collections.abc import Mapping
 from typing import Optional
 
 try:
@@ -128,16 +129,21 @@ def _get_gemini_api_key() -> Optional[str]:
     """Read the optional Gemini API key from Streamlit secrets or the environment."""
     try:
         secret_config = st.secrets.get("gemini", {})
-        if isinstance(secret_config, dict):
+        if isinstance(secret_config, Mapping):
             api_key = secret_config.get("api_key")
             if api_key:
-                return api_key
-        api_key = st.secrets.get("GOOGLE_API_KEY")
-        if api_key:
-            return api_key
+                return str(api_key).strip() or None
+        for secret_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+            api_key = st.secrets.get(secret_name)
+            if api_key:
+                return str(api_key).strip() or None
     except Exception:
         pass
-    return os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    for environment_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        api_key = os.getenv(environment_name)
+        if api_key:
+            return api_key.strip() or None
+    return None
 
 
 def _pcm_to_wav_audio(audio_bytes: bytes, sample_rate: int = 24000) -> BytesIO:
