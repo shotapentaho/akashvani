@@ -14,6 +14,7 @@ import base64
 import binascii
 import os
 import re
+import time
 import wave
 import requests
 from collections.abc import Mapping
@@ -74,6 +75,8 @@ GEMINI_VOICES = {
     "Male": "Puck",
 }
 GEMINI_TTS_CHUNK_SIZE = 1800
+GEMINI_TTS_RETRIES = 3
+GEMINI_TTS_RETRY_DELAY = 1.0
 
 
 def is_language_supported(language_code: str) -> bool:
@@ -296,15 +299,26 @@ def _gemini_tts_audio(
                 },
             },
         }
-        response = requests.post(
-            GEMINI_TTS_ENDPOINT.format(model=model),
-            params={"key": api_key},
-            json=payload,
-            timeout=60,
-        )
-        response.raise_for_status()
-        response_data = response.json()
-        audio_bytes, mime_type = _extract_gemini_audio(response_data)
+        last_error = None
+        for attempt in range(GEMINI_TTS_RETRIES):
+            try:
+                response = requests.post(
+                    GEMINI_TTS_ENDPOINT.format(model=model),
+                    params={"key": api_key},
+                    json=payload,
+                    timeout=60,
+                )
+                response.raise_for_status()
+                response_data = response.json()
+                audio_bytes, mime_type = _extract_gemini_audio(response_data)
+                break
+            except (requests.RequestException, RuntimeError) as error:
+                last_error = error
+                if attempt == GEMINI_TTS_RETRIES - 1:
+                    raise
+                time.sleep(GEMINI_TTS_RETRY_DELAY * (attempt + 1))
+        else:
+            raise last_error or RuntimeError("Gemini TTS request failed")
 
         if not audio_bytes:
             raise RuntimeError("Gemini returned empty audio data")
@@ -390,7 +404,11 @@ def text_to_speech(
                     raise RuntimeError("Microsoft Edge TTS is not installed")
             except Exception as error:
                 provider_error = error
-        elif is_language_supported(language_code):
+
+        # gTTS is a secondary provider for languages supported by its
+        # language catalogue. It does not preserve the selected gender, but
+        # is preferable to failing when Edge TTS is unavailable.
+        if mp3_fp is None and is_language_supported(language_code):
             try:
                 tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
                 mp3_fp = BytesIO()
