@@ -63,6 +63,7 @@ from utils.translator import (
 )
 from utils.tts_handler import (
     VOICE_OPTIONS,
+    is_tts_available,
     text_to_speech,
     get_speech_speed_display,
 )
@@ -1095,10 +1096,8 @@ if auto_search or weather_selection_active:
                                     )
                                     st.success(score_text_translated)
 
-                                    tts_available = (
-                                        is_language_supported(
-                                            language_code
-                                        )
+                                    tts_available = is_tts_available(
+                                        language_code, voice_selection
                                     )
 
                                     if tts_available:

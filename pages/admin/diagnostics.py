@@ -106,8 +106,8 @@ def show_diagnostics():
             diagnostics.append(("✅", "Gemini TTS API key", f"{gemini_key[:10]}...{gemini_key[-4:]}"))
             st.success(f"✅ Gemini TTS API key: `{gemini_key[:10]}...{gemini_key[-4:]}`")
         else:
-            diagnostics.append(("⚠️", "Gemini TTS API key", "Not configured (optional; required for Odia speech)"))
-            st.info("⚠️ Gemini TTS API key: Not configured (optional; required for Odia speech)")
+            diagnostics.append(("ℹ️", "Gemini TTS API key", "Not configured (optional fallback)"))
+            st.info("ℹ️ Gemini TTS API key: Not configured (optional fallback; Edge TTS supports Odia)")
     except Exception as e:
         diagnostics.append(("⚠️", "Gemini TTS API key", str(e)))
         st.warning(f"⚠️ Gemini TTS API key: `{e}`")
