@@ -11,6 +11,7 @@ from io import BytesIO
 import streamlit as st
 import asyncio
 import base64
+import binascii
 import os
 import wave
 import requests
@@ -158,6 +159,40 @@ def _pcm_to_wav_audio(audio_bytes: bytes, sample_rate: int = 24000) -> BytesIO:
     return audio
 
 
+def _extract_gemini_audio(response_data: Mapping) -> tuple[bytes, str]:
+    """Find and decode the audio inline part in a Gemini response."""
+    candidates = response_data.get("candidates", [])
+    if not isinstance(candidates, list):
+        raise RuntimeError("Gemini returned no audio data")
+
+    for candidate in candidates:
+        if not isinstance(candidate, Mapping):
+            continue
+        content = candidate.get("content", {})
+        if not isinstance(content, Mapping):
+            continue
+        parts = content.get("parts", [])
+        if not isinstance(parts, list):
+            continue
+        for part in parts:
+            if not isinstance(part, Mapping):
+                continue
+            inline_data = part.get("inlineData") or part.get("inline_data")
+            if not isinstance(inline_data, Mapping):
+                continue
+            encoded_data = inline_data.get("data")
+            if not isinstance(encoded_data, str) or not encoded_data:
+                continue
+            try:
+                audio_bytes = base64.b64decode(encoded_data, validate=True)
+            except (binascii.Error, ValueError, TypeError) as error:
+                raise RuntimeError("Gemini returned invalid audio data") from error
+            if audio_bytes:
+                return audio_bytes, str(inline_data.get("mimeType") or inline_data.get("mime_type") or "").lower()
+
+    raise RuntimeError("Gemini returned no audio data")
+
+
 def _gemini_tts_audio(
     text: str,
     voice: str,
@@ -195,12 +230,7 @@ def _gemini_tts_audio(
     response.raise_for_status()
     response_data = response.json()
 
-    try:
-        inline_data = response_data["candidates"][0]["content"]["parts"][0]["inlineData"]
-        audio_bytes = base64.b64decode(inline_data["data"])
-        mime_type = inline_data.get("mimeType", "").lower()
-    except (KeyError, IndexError, TypeError, ValueError) as error:
-        raise RuntimeError("Gemini returned no audio data") from error
+    audio_bytes, mime_type = _extract_gemini_audio(response_data)
 
     if not audio_bytes:
         raise RuntimeError("Gemini returned empty audio data")
