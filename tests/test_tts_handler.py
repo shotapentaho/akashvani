@@ -63,6 +63,38 @@ class GeminiAudioResponseTests(unittest.TestCase):
                 b"pcm-part" * post.call_count,
             )
 
+    def test_retries_when_gemini_returns_no_audio(self):
+        audio_data = b"pcm-audio!"
+        no_audio_response = {
+            "candidates": [{"finishReason": "OTHER"}],
+            "modelVersion": "gemini-2.5-flash-preview-tts",
+        }
+        audio_response = {
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "inlineData": {
+                            "data": base64.b64encode(audio_data).decode(),
+                            "mimeType": "audio/L16",
+                        }
+                    }]
+                }
+            }]
+        }
+
+        with patch("utils.tts_handler.time.sleep"), patch(
+            "utils.tts_handler.requests.post"
+        ) as post:
+            post.return_value.json.side_effect = [
+                no_audio_response,
+                audio_response,
+            ]
+            audio = _gemini_tts_audio("ନମସ୍କାର", "Female", False, "key")
+
+        self.assertEqual(post.call_count, 2)
+        with wave.open(audio, "rb") as wav_file:
+            self.assertEqual(wav_file.readframes(wav_file.getnframes()), audio_data)
+
     def test_splits_long_text_at_sentence_boundaries(self):
         text = "First sentence. " + ("word " * 500) + "Final sentence."
 
