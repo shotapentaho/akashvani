@@ -5,7 +5,10 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.tts_handler import _extract_gemini_audio, _get_gemini_api_key
+from utils.tts_handler import (
+    _extract_gemini_audio,
+    _get_gemini_api_key,
+)
 
 
 class GeminiApiKeyTests(unittest.TestCase):
@@ -68,3 +71,15 @@ class GeminiAudioResponseTests(unittest.TestCase):
             _extract_gemini_audio(response),
             (audio_data, "audio/wav"),
         )
+
+    def test_includes_blocking_details_when_audio_is_missing(self):
+        response = {
+            "candidates": [{"finishReason": "SAFETY"}],
+            "promptFeedback": {"blockReason": "SAFETY"},
+        }
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r"finishReason=SAFETY.*blockReason=SAFETY.*responseKeys=candidates,promptFeedback",
+        ):
+            _extract_gemini_audio(response)
