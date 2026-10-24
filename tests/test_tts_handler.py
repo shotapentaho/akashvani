@@ -2,6 +2,7 @@ import base64
 import os
 import sys
 import unittest
+import wave
 from io import BytesIO
 from unittest.mock import patch
 
@@ -10,7 +11,9 @@ from utils.tts_handler import (
     INDIAN_FEMALE_VOICES,
     INDIAN_MALE_VOICES,
     _extract_gemini_audio,
+    _gemini_tts_audio,
     _get_gemini_api_key,
+    _split_gemini_text,
     is_tts_available,
     text_to_speech,
 )
@@ -34,6 +37,41 @@ class GeminiApiKeyTests(unittest.TestCase):
 
 
 class GeminiAudioResponseTests(unittest.TestCase):
+    def test_combines_audio_for_long_text(self):
+        response = {
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "inlineData": {
+                            "data": base64.b64encode(b"pcm-part").decode(),
+                            "mimeType": "audio/L16",
+                        }
+                    }]
+                }
+            }]
+        }
+        long_text = "sentence " * 400
+
+        with patch("utils.tts_handler.requests.post") as post:
+            post.return_value.json.return_value = response
+            audio = _gemini_tts_audio(long_text, "Female", False, "key")
+
+        self.assertGreater(post.call_count, 1)
+        with wave.open(audio, "rb") as wav_file:
+            self.assertEqual(
+                wav_file.readframes(wav_file.getnframes()),
+                b"pcm-part" * post.call_count,
+            )
+
+    def test_splits_long_text_at_sentence_boundaries(self):
+        text = "First sentence. " + ("word " * 500) + "Final sentence."
+
+        chunks = _split_gemini_text(text, max_chars=100)
+
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(len(chunk) <= 100 for chunk in chunks))
+        self.assertEqual(" ".join(chunks), " ".join(text.split()))
+
     def test_finds_audio_after_non_audio_parts(self):
         audio_data = b"pcm-audio"
         response = {

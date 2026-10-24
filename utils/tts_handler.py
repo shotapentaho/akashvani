@@ -13,6 +13,7 @@ import asyncio
 import base64
 import binascii
 import os
+import re
 import wave
 import requests
 from collections.abc import Mapping
@@ -72,6 +73,7 @@ GEMINI_VOICES = {
     "Female": "Kore",
     "Male": "Puck",
 }
+GEMINI_TTS_CHUNK_SIZE = 1800
 
 
 def is_language_supported(language_code: str) -> bool:
@@ -171,6 +173,44 @@ def _pcm_to_wav_audio(audio_bytes: bytes, sample_rate: int = 24000) -> BytesIO:
     return audio
 
 
+def _split_gemini_text(text: str, max_chars: int = GEMINI_TTS_CHUNK_SIZE) -> list[str]:
+    """Split narration into API-sized chunks without cutting words."""
+    if len(text) <= max_chars:
+        return [text]
+
+    sentences = re.split(r"(?<=[.!?।॥])\s+", text.strip())
+    chunks = []
+    current = []
+    current_length = 0
+
+    for sentence in sentences:
+        if not sentence:
+            continue
+        if len(sentence) > max_chars:
+            words = sentence.split()
+            for word in words:
+                separator_length = 1 if current else 0
+                if current and current_length + separator_length + len(word) > max_chars:
+                    chunks.append(" ".join(current))
+                    current = []
+                    current_length = 0
+                current.append(word)
+                current_length += separator_length + len(word)
+            continue
+
+        separator_length = 1 if current else 0
+        if current and current_length + separator_length + len(sentence) > max_chars:
+            chunks.append(" ".join(current))
+            current = []
+            current_length = 0
+        current.append(sentence)
+        current_length += separator_length + len(sentence)
+
+    if current:
+        chunks.append(" ".join(current))
+    return chunks or [text]
+
+
 def _gemini_no_audio_error(response_data: Mapping) -> RuntimeError:
     """Describe why a Gemini response did not contain usable audio."""
     candidates = response_data.get("candidates", [])
@@ -233,44 +273,60 @@ def _gemini_tts_audio(
     model: str = GEMINI_TTS_MODEL,
 ) -> BytesIO:
     """Generate speech with Gemini's native audio output."""
-    prompt = f"Read the following text exactly in its original language:\n{text}"
-    if slow:
-        prompt = (
-            "Speak clearly at a deliberately slow, senior-friendly pace. "
-            f"Read the following text exactly in its original language:\n{text}"
-        )
+    pcm_chunks = []
 
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "responseModalities": ["AUDIO"],
-            "speechConfig": {
-                "voiceConfig": {
-                    "prebuiltVoiceConfig": {
-                        "voiceName": GEMINI_VOICES.get(voice, GEMINI_VOICES["Female"])
+    for text_chunk in _split_gemini_text(text):
+        prompt = f"Read the following text exactly in its original language:\n{text_chunk}"
+        if slow:
+            prompt = (
+                "Speak clearly at a deliberately slow, senior-friendly pace. "
+                f"Read the following text exactly in its original language:\n{text_chunk}"
+            )
+
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "responseModalities": ["AUDIO"],
+                "speechConfig": {
+                    "voiceConfig": {
+                        "prebuiltVoiceConfig": {
+                            "voiceName": GEMINI_VOICES.get(voice, GEMINI_VOICES["Female"])
+                        }
                     }
-                }
+                },
             },
-        },
-    }
-    response = requests.post(
-        GEMINI_TTS_ENDPOINT.format(model=model),
-        params={"key": api_key},
-        json=payload,
-        timeout=60,
-    )
-    response.raise_for_status()
-    response_data = response.json()
+        }
+        response = requests.post(
+            GEMINI_TTS_ENDPOINT.format(model=model),
+            params={"key": api_key},
+            json=payload,
+            timeout=60,
+        )
+        response.raise_for_status()
+        response_data = response.json()
+        audio_bytes, mime_type = _extract_gemini_audio(response_data)
 
-    audio_bytes, mime_type = _extract_gemini_audio(response_data)
+        if not audio_bytes:
+            raise RuntimeError("Gemini returned empty audio data")
+        if "wav" in mime_type:
+            with wave.open(BytesIO(audio_bytes), "rb") as wav_file:
+                pcm_chunks.append(wav_file.readframes(wav_file.getnframes()))
+        elif "l16" in mime_type or "pcm" in mime_type or not mime_type:
+            pcm_chunks.append(audio_bytes)
+        elif "mpeg" in mime_type or "mp3" in mime_type:
+            if len(_split_gemini_text(text)) > 1:
+                raise RuntimeError(
+                    "Gemini returned MP3 audio for a multi-part narration"
+                )
+            audio = BytesIO(audio_bytes)
+            audio.seek(0)
+            return audio
+        else:
+            pcm_chunks.append(audio_bytes)
 
-    if not audio_bytes:
+    if not pcm_chunks:
         raise RuntimeError("Gemini returned empty audio data")
-    if "wav" in mime_type or "mpeg" in mime_type or "mp3" in mime_type:
-        audio = BytesIO(audio_bytes)
-        audio.seek(0)
-        return audio
-    return _pcm_to_wav_audio(audio_bytes)
+    return _pcm_to_wav_audio(b"".join(pcm_chunks))
 
 
 def _try_gemini_fallback(
