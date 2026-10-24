@@ -1,7 +1,7 @@
 # utils/tts_handler.py
 """
 akashvani - Text-to-Speech Utilities
-Using gTTS for audio generation in supported Indian languages
+Using gTTS/Edge TTS with Gemini audio fallback for Indian languages
 Version: 1.4 | 2026-02-13
 """
 
@@ -10,6 +10,10 @@ from gtts.lang import tts_langs
 from io import BytesIO
 import streamlit as st
 import asyncio
+import base64
+import os
+import wave
+import requests
 from typing import Optional
 
 try:
@@ -51,6 +55,16 @@ INDIAN_MALE_VOICES = {
     "ta": "ta-IN-ValluvarNeural",
     "te": "te-IN-MohanNeural",
     "ur": "ur-IN-SalmanNeural",
+}
+
+GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"
+GEMINI_TTS_ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "{model}:generateContent"
+)
+GEMINI_VOICES = {
+    "Female": "Kore",
+    "Male": "Puck",
 }
 
 
@@ -108,6 +122,100 @@ def _edge_tts_audio(text: str, voice: str, slow: bool) -> BytesIO:
     return BytesIO(audio_bytes)
 
 
+def _get_gemini_api_key() -> Optional[str]:
+    """Read the optional Gemini API key from Streamlit secrets or the environment."""
+    try:
+        secret_config = st.secrets.get("gemini", {})
+        if isinstance(secret_config, dict):
+            api_key = secret_config.get("api_key")
+            if api_key:
+                return api_key
+        api_key = st.secrets.get("GOOGLE_API_KEY")
+        if api_key:
+            return api_key
+    except Exception:
+        pass
+    return os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+
+
+def _pcm_to_wav_audio(audio_bytes: bytes, sample_rate: int = 24000) -> BytesIO:
+    """Wrap Gemini's raw 16-bit PCM response in a browser-playable WAV container."""
+    audio = BytesIO()
+    with wave.open(audio, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(audio_bytes)
+    audio.seek(0)
+    return audio
+
+
+def _gemini_tts_audio(
+    text: str,
+    voice: str,
+    slow: bool,
+    api_key: str,
+    model: str = GEMINI_TTS_MODEL,
+) -> BytesIO:
+    """Generate speech with Gemini's native audio output."""
+    prompt = f"Read the following text exactly in its original language:\n{text}"
+    if slow:
+        prompt = (
+            "Speak clearly at a deliberately slow, senior-friendly pace. "
+            f"Read the following text exactly in its original language:\n{text}"
+        )
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "responseModalities": ["AUDIO"],
+            "speechConfig": {
+                "voiceConfig": {
+                    "prebuiltVoiceConfig": {
+                        "voiceName": GEMINI_VOICES.get(voice, GEMINI_VOICES["Female"])
+                    }
+                }
+            },
+        },
+    }
+    response = requests.post(
+        GEMINI_TTS_ENDPOINT.format(model=model),
+        params={"key": api_key},
+        json=payload,
+        timeout=60,
+    )
+    response.raise_for_status()
+    response_data = response.json()
+
+    try:
+        inline_data = response_data["candidates"][0]["content"]["parts"][0]["inlineData"]
+        audio_bytes = base64.b64decode(inline_data["data"])
+        mime_type = inline_data.get("mimeType", "").lower()
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        raise RuntimeError("Gemini returned no audio data") from error
+
+    if not audio_bytes:
+        raise RuntimeError("Gemini returned empty audio data")
+    if "wav" in mime_type or "mpeg" in mime_type or "mp3" in mime_type:
+        audio = BytesIO(audio_bytes)
+        audio.seek(0)
+        return audio
+    return _pcm_to_wav_audio(audio_bytes)
+
+
+def _try_gemini_fallback(
+    text: str,
+    voice: str,
+    slow: bool,
+) -> Optional[BytesIO]:
+    """Try Gemini only when an optional API key is configured."""
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        return None
+    model = os.getenv("GEMINI_TTS_MODEL", GEMINI_TTS_MODEL)
+    return _gemini_tts_audio(text, voice, slow, api_key, model)
+
+
 def text_to_speech(
     text: str,
     language_code: str = "en",
@@ -131,12 +239,6 @@ def text_to_speech(
             st.error("❌ No text to convert to speech")
             return None
         
-        # Check if language is supported
-        if not is_language_supported(language_code):
-            st.warning(f"🔇 Text-to-Speech is not available for this language (Code: {language_code.upper()})")
-            st.info("📝 You can still read the text summary above. Consider translating to a supported language like English or Hindi.")
-            return None
-        
         # Calculate estimated duration
         estimated_duration = calculate_speech_duration(text, slow)
         word_count = len(text.split())
@@ -146,21 +248,48 @@ def text_to_speech(
         seconds = int(estimated_duration % 60)
         st.info(f"🎵 Generating audio... ({word_count} words ≈ {minutes}m {seconds}s at {'Slow' if slow else 'Normal'} speed)")
         
+        mp3_fp = None
+        provider_error = None
+
         # Generate Indian voices with Edge TTS when available.
         indian_voices = (
             INDIAN_MALE_VOICES if voice == "Male" else INDIAN_FEMALE_VOICES
         )
         indian_voice = indian_voices.get(language_code.lower())
-        if edge_tts is not None and indian_voice:
-            mp3_fp = _edge_tts_audio(text, indian_voice, slow)
+        if is_language_supported(language_code):
+            try:
+                if edge_tts is not None and indian_voice:
+                    mp3_fp = _edge_tts_audio(text, indian_voice, slow)
+                else:
+                    tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
+                    mp3_fp = BytesIO()
+                    tts.write_to_fp(mp3_fp)
+            except Exception as error:
+                provider_error = error
         else:
-            st.info(
-                "ℹ️ The selected Indian voice is not available for this "
-                "language here, so the current voice is being used."
+            st.warning(
+                f"🔇 The primary TTS provider does not support "
+                f"{language_code.upper()}; trying Gemini fallback."
             )
-            tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
-            mp3_fp = BytesIO()
-            tts.write_to_fp(mp3_fp)
+
+        if mp3_fp is None:
+            try:
+                mp3_fp = _try_gemini_fallback(text, voice, slow)
+                if mp3_fp is not None:
+                    st.info("ℹ️ Audio generated with Gemini fallback.")
+            except Exception as error:
+                provider_error = error
+
+        if mp3_fp is None:
+            if provider_error is not None:
+                raise RuntimeError(
+                    f"Primary TTS and Gemini fallback failed: {provider_error}"
+                ) from provider_error
+            st.info(
+                "ℹ️ Gemini fallback is not configured. Add a Gemini API key "
+                "to enable speech for languages unavailable to the primary provider."
+            )
+            return None
 
         mp3_fp.seek(0)
         
