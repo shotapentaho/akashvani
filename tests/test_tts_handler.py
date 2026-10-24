@@ -67,7 +67,7 @@ class GeminiAudioResponseTests(unittest.TestCase):
         audio_data = b"pcm-audio!"
         no_audio_response = {
             "candidates": [{"finishReason": "OTHER"}],
-            "modelVersion": "gemini-2.5-flash-preview-tts",
+            "modelVersion": "gemini-3.8-flash-tts",
         }
         audio_response = {
             "candidates": [{
