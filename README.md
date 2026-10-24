@@ -54,7 +54,7 @@
 
 ### 🎧 **Text-to-Speech (TTS)**
 - Google Text-to-Speech (gTTS) integration
-- Gemini `gemini-3.8-flash-tts` fallback for languages unavailable to gTTS
+- Gemini `gemini-2.5-flash-preview-tts` fallback for languages unavailable to gTTS
 - Two speed modes: Normal ⚡ and Slow 🐢
 - Voice choices: Female and Male, both with Indian accents
 - High-quality voice output for all 12 languages
