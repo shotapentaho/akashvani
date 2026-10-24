@@ -54,10 +54,18 @@
 
 ### 🎧 **Text-to-Speech (TTS)**
 - Google Text-to-Speech (gTTS) integration
+- Gemini `gemini-3.8-flash-tts` fallback for languages unavailable to gTTS
 - Two speed modes: Normal ⚡ and Slow 🐢
 - Voice choices: Female and Male, both with Indian accents
 - High-quality voice output for all 12 languages
 - Optimized for senior citizens' listening comfort
+
+To enable the Gemini fallback, add a Google AI API key to Streamlit secrets:
+
+```toml
+[gemini]
+api_key = "your-google-ai-api-key"
+```
 
 ### 📱 **Senior-Friendly UI**
 - Large, readable fonts (18px base)
