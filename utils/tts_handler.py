@@ -43,6 +43,7 @@ INDIAN_FEMALE_VOICES = {
     "ta": "ta-IN-PallaviNeural",
     "te": "te-IN-ShrutiNeural",
     "ur": "ur-IN-GulNeural",
+    "or": "or-IN-SubhasiniNeural",
 }
 
 INDIAN_MALE_VOICES = {
@@ -57,6 +58,7 @@ INDIAN_MALE_VOICES = {
     "ta": "ta-IN-ValluvarNeural",
     "te": "te-IN-MohanNeural",
     "ur": "ur-IN-SalmanNeural",
+    "or": "or-IN-SukantNeural",
 }
 
 # Gemini's public native-audio preview model supports multilingual speech,
@@ -83,6 +85,16 @@ def is_language_supported(language_code: str) -> bool:
         True if supported, False otherwise
     """
     return language_code.lower() in SUPPORTED_TTS_LANGS
+
+
+def is_tts_available(language_code: str, voice: str = "Female") -> bool:
+    """Return whether the selected voice has a configured TTS provider."""
+    language_code = language_code.lower()
+    indian_voices = (
+        INDIAN_MALE_VOICES if voice == "Male" else INDIAN_FEMALE_VOICES
+    )
+    return language_code in indian_voices or is_language_supported(language_code)
+
 
 def get_supported_languages_list() -> dict:
     """
@@ -314,21 +326,21 @@ def text_to_speech(
             INDIAN_MALE_VOICES if voice == "Male" else INDIAN_FEMALE_VOICES
         )
         indian_voice = indian_voices.get(language_code.lower())
-        if is_language_supported(language_code):
+        if indian_voice:
             try:
-                if edge_tts is not None and indian_voice:
+                if edge_tts is not None:
                     mp3_fp = _edge_tts_audio(text, indian_voice, slow)
                 else:
-                    tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
-                    mp3_fp = BytesIO()
-                    tts.write_to_fp(mp3_fp)
+                    raise RuntimeError("Microsoft Edge TTS is not installed")
             except Exception as error:
                 provider_error = error
-        else:
-            st.warning(
-                f"🔇 The primary TTS provider does not support "
-                f"{language_code.upper()}; trying Gemini fallback."
-            )
+        elif is_language_supported(language_code):
+            try:
+                tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
+                mp3_fp = BytesIO()
+                tts.write_to_fp(mp3_fp)
+            except Exception as error:
+                provider_error = error
 
         if mp3_fp is None:
             try:

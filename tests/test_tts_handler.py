@@ -2,12 +2,17 @@ import base64
 import os
 import sys
 import unittest
+from io import BytesIO
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.tts_handler import (
+    INDIAN_FEMALE_VOICES,
+    INDIAN_MALE_VOICES,
     _extract_gemini_audio,
     _get_gemini_api_key,
+    is_tts_available,
+    text_to_speech,
 )
 
 
@@ -101,3 +106,41 @@ class GeminiAudioResponseTests(unittest.TestCase):
             r"finishReason=SAFETY.*blockReason=SAFETY.*responseKeys=candidates,promptFeedback",
         ):
             _extract_gemini_audio(response)
+
+
+class EdgeTtsRoutingTests(unittest.TestCase):
+    def test_odia_is_available_for_both_voice_choices(self):
+        self.assertTrue(is_tts_available("or", "Female"))
+        self.assertTrue(is_tts_available("or", "Male"))
+
+    def test_odia_uses_microsoft_edge_female_voice(self):
+        self.assertEqual(INDIAN_FEMALE_VOICES["or"], "or-IN-SubhasiniNeural")
+        with patch("utils.tts_handler.edge_tts", object()), patch(
+            "utils.tts_handler._edge_tts_audio",
+            return_value=BytesIO(b"odia-female"),
+        ) as edge_audio, patch(
+            "utils.tts_handler._try_gemini_fallback"
+        ) as gemini_fallback:
+            audio = text_to_speech("ନମସ୍କାର", "or", voice="Female")
+
+        edge_audio.assert_called_once_with(
+            "ନମସ୍କାର", "or-IN-SubhasiniNeural", False
+        )
+        gemini_fallback.assert_not_called()
+        self.assertEqual(audio.read(), b"odia-female")
+
+    def test_odia_uses_microsoft_edge_male_voice(self):
+        self.assertEqual(INDIAN_MALE_VOICES["or"], "or-IN-SukantNeural")
+        with patch("utils.tts_handler.edge_tts", object()), patch(
+            "utils.tts_handler._edge_tts_audio",
+            return_value=BytesIO(b"odia-male"),
+        ) as edge_audio, patch(
+            "utils.tts_handler._try_gemini_fallback"
+        ) as gemini_fallback:
+            audio = text_to_speech("ନମସ୍କାର", "or", voice="Male")
+
+        edge_audio.assert_called_once_with(
+            "ନମସ୍କାର", "or-IN-SukantNeural", False
+        )
+        gemini_fallback.assert_not_called()
+        self.assertEqual(audio.read(), b"odia-male")

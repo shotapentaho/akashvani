@@ -54,6 +54,7 @@
 
 ### 🎧 **Text-to-Speech (TTS)**
 - Google Text-to-Speech (gTTS) integration
+- Microsoft Edge TTS voices for Indian languages, including Odia
 - Gemini `gemini-2.5-flash-preview-tts` fallback for languages unavailable to gTTS
 - Two speed modes: Normal ⚡ and Slow 🐢
 - Voice choices: Female and Male, both with Indian accents
