@@ -43,6 +43,7 @@ INDIAN_FEMALE_VOICES = {
     "ta": "ta-IN-PallaviNeural",
     "te": "te-IN-ShrutiNeural",
     "ur": "ur-IN-GulNeural",
+    "or": "or-IN-SubhasiniNeural",
 }
 
 INDIAN_MALE_VOICES = {
@@ -57,6 +58,7 @@ INDIAN_MALE_VOICES = {
     "ta": "ta-IN-ValluvarNeural",
     "te": "te-IN-MohanNeural",
     "ur": "ur-IN-SalmanNeural",
+    "or": "or-IN-SukantNeural",
 }
 
 # Gemini's public native-audio preview model supports multilingual speech,
@@ -314,21 +316,18 @@ def text_to_speech(
             INDIAN_MALE_VOICES if voice == "Male" else INDIAN_FEMALE_VOICES
         )
         indian_voice = indian_voices.get(language_code.lower())
-        if is_language_supported(language_code):
+        if edge_tts is not None and indian_voice:
             try:
-                if edge_tts is not None and indian_voice:
-                    mp3_fp = _edge_tts_audio(text, indian_voice, slow)
-                else:
-                    tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
-                    mp3_fp = BytesIO()
-                    tts.write_to_fp(mp3_fp)
+                mp3_fp = _edge_tts_audio(text, indian_voice, slow)
             except Exception as error:
                 provider_error = error
-        else:
-            st.warning(
-                f"🔇 The primary TTS provider does not support "
-                f"{language_code.upper()}; trying Gemini fallback."
-            )
+        elif is_language_supported(language_code):
+            try:
+                tts = gTTS(text, lang=language_code, slow=slow, tld="co.in")
+                mp3_fp = BytesIO()
+                tts.write_to_fp(mp3_fp)
+            except Exception as error:
+                provider_error = error
 
         if mp3_fp is None:
             try:
