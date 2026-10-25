@@ -495,6 +495,7 @@ def get_top_news(
     top_k: int = 5,
     use_international_domains: bool = True,
     require_query_match: bool = False,
+    show_no_results_warning: bool = True,
 ) -> List[Dict]:
     """
     Fetch and return the most relevant news articles for `query`.
@@ -510,6 +511,8 @@ def get_top_news(
     - Deduplicates, formats, scores, sorts, and returns top_k results.
     - ONLY FETCHES ARTICLES FROM LAST 2 DAYS
     - RATE LIMIT HANDLING: Shows helpful error messages on 429 errors
+    - `show_no_results_warning=False` lets callers with additional fallbacks
+      avoid displaying an intermediate warning before those fallbacks run.
     """
     if not query or not api_key:
         st.error("❌ Missing query or API key for NewsAPI")
@@ -605,6 +608,8 @@ def get_top_news(
 
     # Final check - if still no results
     if not combined:
+        if not show_no_results_warning:
+            return []
         if is_cricket_query:
             st.warning(f"🏏 No cricket articles found for '{query}' in the last 2 days")
             st.info("💡 Tip: Try different team names or check if matches happened recently")
@@ -640,7 +645,7 @@ def get_top_news(
         cleaned = {k: v for k, v in a.items() if not k.startswith("_")}
         result.append(cleaned)
 
-    if len(result) == 0:
+    if len(result) == 0 and show_no_results_warning:
         if is_cricket_query:
             st.warning(f"🏏 No relevant cricket articles after filtering for '{query}' in the last 2 days")
         else:
