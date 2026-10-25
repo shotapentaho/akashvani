@@ -840,6 +840,7 @@ if auto_search or weather_selection_active:
                             search_query,
                             news_api_key,
                             top_k=results_count,
+                            show_no_results_warning=False,
                         )
                     )
 
