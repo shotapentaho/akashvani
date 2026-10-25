@@ -279,10 +279,8 @@ def _gemini_tts_audio(
     pcm_chunks = []
 
     for text_chunk in _split_gemini_text(text):
-        prompt = f"Read the following text exactly in its original language:\n{text_chunk}"
-
         payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
+            "contents": [{"parts": [{"text": text_chunk}]}],
             "generationConfig": {
                 "responseModalities": ["AUDIO"],
                 "speechConfig": {

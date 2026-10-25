@@ -116,10 +116,7 @@ class GeminiAudioResponseTests(unittest.TestCase):
 
         prompt = post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
         self.assertNotIn("Speak clearly at a deliberately slow", prompt)
-        self.assertEqual(
-            prompt,
-            "Read the following text exactly in its original language:\nନମସ୍କାର",
-        )
+        self.assertEqual(prompt, "ନମସ୍କାର")
 
     def test_splits_long_text_at_sentence_boundaries(self):
         text = "First sentence. " + ("word " * 500) + "Final sentence."
