@@ -81,6 +81,11 @@ from utils.auto_search import (
     should_auto_run,
 )
 from utils.song_fetcher import get_song_results, is_song_query
+from utils.web_search_fetcher import (
+    get_bbc_search_results,
+    get_gemini_search_results,
+    get_youtube_search_results,
+)
 
 
 try:
@@ -127,6 +132,11 @@ try:
     news_api_key = st.secrets["newsapi"]["api_key"]
     gnews_api_key = st.secrets.get("gnewsapi", {}).get("api_key")
     serpapi_key = st.secrets.get("serpapi", {}).get("api_key")
+    gemini_api_key = (
+        st.secrets.get("gemini", {}).get("api_key")
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+    )
 
     SERPAPI_ENABLED = bool(serpapi_key)
 
@@ -952,6 +962,37 @@ if auto_search or weather_selection_active:
                 print(f"GNews error: {e}")
                 service_error = True
 
+
+        # ===== LIVE WEB SEARCH FALLBACK =====
+        if not articles:
+            web_articles = []
+            with st.spinner("🌐 Searching live web sources..."):
+                if gemini_api_key:
+                    web_articles.extend(
+                        get_gemini_search_results(news_query, gemini_api_key, results_count)
+                    )
+                if serpapi_key:
+                    web_articles.extend(
+                        get_bbc_search_results(news_query, serpapi_key, results_count)
+                    )
+                    web_articles.extend(
+                        get_youtube_search_results(news_query, serpapi_key, results_count)
+                    )
+
+            deduplicated = {}
+            for article in web_articles:
+                key = article.get("url") or article.get("title")
+                if key and key != "#" and key not in deduplicated:
+                    deduplicated[key] = article
+            articles = list(deduplicated.values())[:results_count]
+
+            if articles:
+                api_used = "Live web search"
+                service_error = False
+                st.info(
+                    "🌐 No recent NewsAPI results were found. "
+                    "Showing live Gemini, BBC News, and YouTube results."
+                )
 
         # ===== OPENAI FALLBACK =====
         if not articles:
