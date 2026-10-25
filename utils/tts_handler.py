@@ -280,11 +280,6 @@ def _gemini_tts_audio(
 
     for text_chunk in _split_gemini_text(text):
         prompt = f"Read the following text exactly in its original language:\n{text_chunk}"
-        if slow:
-            prompt = (
-                "Speak clearly at a deliberately slow, senior-friendly pace. "
-                f"Read the following text exactly in its original language:\n{text_chunk}"
-            )
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -419,8 +414,6 @@ def text_to_speech(
         if mp3_fp is None:
             try:
                 mp3_fp = _try_gemini_fallback(text, voice, slow)
-                if mp3_fp is not None:
-                    st.info("ℹ️ Audio generated with Gemini fallback.")
             except Exception as error:
                 provider_error = error
 
