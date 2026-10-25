@@ -987,10 +987,6 @@ if auto_search or weather_selection_active:
             if articles:
                 api_used = "Live web search"
                 service_error = False
-                st.info(
-                    "🌐 No recent NewsAPI results were found. "
-                    "Showing live Gemini, BBC News, and YouTube results."
-                )
 
         # ===== OPENAI FALLBACK =====
         if not articles:
