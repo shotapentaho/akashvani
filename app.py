@@ -1084,33 +1084,32 @@ if auto_search or weather_selection_active:
                                     match_data
                                 )
                             )
+                            slow_mode = speech_speed == "Slow 🐢"
 
-                            st.markdown("---")
-                            st.write("**📝 Score in English:**")
-                            st.info(english_score_text)
+                            if language_code == "en":
+                                st.markdown("---")
+                                st.write("**📝 Score in English:**")
+                                st.info(english_score_text)
 
-                            try:
-                                st.write("**🔊 Listen in English:**")
+                                try:
+                                    st.write("**🔊 Listen in English:**")
 
-                                slow_mode = speech_speed == "Slow 🐢"
-
-                                audio_en = text_to_speech(
-                                    english_score_text,
-                                    "en",
-                                    slow=slow_mode,
-                                    voice=voice_selection,
-                                )
-
-                                if audio_en:
-                                    st.audio(
-                                        audio_en,
-                                        format="audio/mp3",
+                                    audio_en = text_to_speech(
+                                        english_score_text,
+                                        "en",
+                                        slow=slow_mode,
+                                        voice=voice_selection,
                                     )
 
-                            except Exception as e:
-                                print(f"English TTS error: {e}")
+                                    if audio_en:
+                                        st.audio(
+                                            audio_en,
+                                            format="audio/mp3",
+                                        )
 
-                            if language_code != "en":
+                                except Exception as e:
+                                    print(f"English TTS error: {e}")
+                            else:
                                 st.markdown("---")
 
                                 try:
@@ -1235,32 +1234,31 @@ if auto_search or weather_selection_active:
                                 f"{match['team2']} scored "
                                 f"{match['team2_score']}."
                             )
+                            slow_mode = speech_speed == "Slow 🐢"
 
-                            st.write("**📝 Score in English:**")
-                            st.info(score_text)
+                            if language_code == "en":
+                                st.write("**📝 Score in English:**")
+                                st.info(score_text)
 
-                            try:
-                                st.write("**🔊 Listen in English:**")
+                                try:
+                                    st.write("**🔊 Listen in English:**")
 
-                                slow_mode = speech_speed == "Slow 🐢"
-
-                                audio_en = text_to_speech(
-                                    score_text,
-                                    "en",
-                                    slow=slow_mode,
-                                    voice=voice_selection,
-                                )
-
-                                if audio_en:
-                                    st.audio(
-                                        audio_en,
-                                        format="audio/mp3",
+                                    audio_en = text_to_speech(
+                                        score_text,
+                                        "en",
+                                        slow=slow_mode,
+                                        voice=voice_selection,
                                     )
 
-                            except Exception as e:
-                                print(f"English TTS error: {e}")
+                                    if audio_en:
+                                        st.audio(
+                                            audio_en,
+                                            format="audio/mp3",
+                                        )
 
-                            if language_code != "en":
+                                except Exception as e:
+                                    print(f"English TTS error: {e}")
+                            else:
                                 st.markdown("---")
 
                                 try:
