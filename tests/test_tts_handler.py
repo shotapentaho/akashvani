@@ -95,7 +95,7 @@ class GeminiAudioResponseTests(unittest.TestCase):
         with wave.open(audio, "rb") as wav_file:
             self.assertEqual(wav_file.readframes(wav_file.getnframes()), audio_data)
 
-    def test_slow_mode_does_not_send_spoken_instructions_to_gemini(self):
+    def test_gemini_receives_odia_text_without_spoken_instructions(self):
         audio_data = b"pcm-audio!"
         response = {
             "candidates": [{
@@ -115,11 +115,7 @@ class GeminiAudioResponseTests(unittest.TestCase):
             _gemini_tts_audio("ନମସ୍କାର", "Female", True, "key")
 
         prompt = post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
-        self.assertNotIn("Speak clearly at a deliberately slow", prompt)
-        self.assertEqual(
-            prompt,
-            "Read the following text exactly in its original language:\nନମସ୍କାର",
-        )
+        self.assertEqual(prompt, "ନମସ୍କାର")
 
     def test_splits_long_text_at_sentence_boundaries(self):
         text = "First sentence. " + ("word " * 500) + "Final sentence."
