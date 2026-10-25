@@ -894,8 +894,6 @@ if auto_search or weather_selection_active:
         # ===== FALLBACK TO GNEWS =====
         if not articles and gnews_api_key:
             try:
-                st.info("🔄 Switching to backup news source...")
-
                 from utils.gnews_fetcher import get_gnews_articles
 
                 with st.spinner(
