@@ -342,11 +342,17 @@ def format_article(article: Any) -> Dict:
         "description": article.get("description") or "",
         "content": article.get("content") or "",
         "source": source_name,
-        "published_at": _safe_date(article.get("publishedAt")),
+        "published_at": _safe_date(
+            article.get("publishedAt") or article.get("published_at")
+        ),
         "author": article.get("author") or "Unknown Author",
         "url": article.get("url") or "#",
-        "image": article.get("urlToImage") or "",
-        "_raw_published_at": article.get("publishedAt") or datetime.utcnow().isoformat(),
+        "image": article.get("urlToImage") or article.get("image") or "",
+        "_raw_published_at": (
+            article.get("publishedAt")
+            or article.get("published_at")
+            or datetime.utcnow().isoformat()
+        ),
     }
 
 def _score_article(formatted: Dict, query: str) -> float:
