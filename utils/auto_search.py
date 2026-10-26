@@ -1,7 +1,8 @@
 """Helpers for auto-submitting searches after the user pauses typing."""
 import re
 
-DEBOUNCE_MS = 700
+# Wait for the user to pause typing before auto-submitting a search.
+DEBOUNCE_MS = 2000
 MIN_QUERY_LENGTH = 3
 
 # Weather phrases that still lack a location, e.g. "weather", "weather in".

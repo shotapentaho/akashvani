@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.auto_search import (
+    DEBOUNCE_MS,
     is_auto_eligible,
     news_query_variants,
     query_fingerprint,
@@ -15,6 +16,9 @@ from utils.translator import get_ai_search_result
 
 
 class AutoSearchTests(unittest.TestCase):
+    def test_auto_search_waits_two_seconds(self):
+        self.assertEqual(DEBOUNCE_MS, 2000)
+
     def test_ineligible(self):
         for q in [None, "", "  ", "a", "ab", "123", "??",
                   "weather", "weather in", "Weather In  ", "temperature at",

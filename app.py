@@ -446,7 +446,7 @@ with st.container():
         ) or ""
 
         st.caption(
-            "Type a topic and pause. Results appear instantly. "
+            "Type a topic and pause for 2 seconds. Results appear automatically. "
             "For weather, try: weather in Mumbai."
         )
         st.caption(
@@ -463,7 +463,7 @@ with st.container():
             "",
             placeholder=search_placeholder,
             help=(
-                "Type a topic and pause. Results appear instantly. "
+                "Type a topic and pause for 2 seconds. Results appear automatically. "
                 "For weather, try 'weather in Mumbai'."
             ),
         )
