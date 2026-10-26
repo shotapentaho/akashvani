@@ -967,16 +967,57 @@ if auto_search or weather_selection_active:
             web_articles = []
             with st.spinner("🌐 Searching live web sources..."):
                 if gemini_api_key:
-                    web_articles.extend(
-                        get_gemini_search_results(news_query, gemini_api_key, results_count)
+                    gemini_articles = get_gemini_search_results(
+                        news_query,
+                        gemini_api_key,
+                        results_count,
                     )
+                    web_articles.extend(gemini_articles)
+                    if DB_TRACKING_ENABLED:
+                        try:
+                            track_api_call(
+                                "gemini",
+                                query,
+                                "success" if gemini_articles else "failure",
+                                len(gemini_articles),
+                            )
+                        except Exception as e:
+                            print(f"Tracking error: {e}")
+
                 if serpapi_key:
-                    web_articles.extend(
-                        get_bbc_search_results(news_query, serpapi_key, results_count)
+                    bbc_articles = get_bbc_search_results(
+                        news_query,
+                        serpapi_key,
+                        results_count,
                     )
-                    web_articles.extend(
-                        get_youtube_search_results(news_query, serpapi_key, results_count)
+                    web_articles.extend(bbc_articles)
+                    if DB_TRACKING_ENABLED:
+                        try:
+                            track_api_call(
+                                "serpapi",
+                                query,
+                                "success" if bbc_articles else "failure",
+                                len(bbc_articles),
+                            )
+                        except Exception as e:
+                            print(f"Tracking error: {e}")
+
+                    youtube_articles = get_youtube_search_results(
+                        news_query,
+                        serpapi_key,
+                        results_count,
                     )
+                    web_articles.extend(youtube_articles)
+                    if DB_TRACKING_ENABLED:
+                        try:
+                            track_api_call(
+                                "serpapi",
+                                query,
+                                "success" if youtube_articles else "failure",
+                                len(youtube_articles),
+                            )
+                        except Exception as e:
+                            print(f"Tracking error: {e}")
 
             deduplicated = {}
             for article in web_articles:
