@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 
 import requests
 
+from utils.web_search_fetcher import GEMINI_ENDPOINT
+
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
 
@@ -150,6 +152,149 @@ def _display_text(value) -> str:
     if isinstance(value, list):
         return ", ".join(filter(None, (_display_text(item) for item in value)))
     return ""
+
+
+def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float]:
+    rating = r"(\d{1,3}(?:\.\d+)?)"
+    patterns = (
+        rf"{rating}\s*%?\s*{label}",
+        rf"{label}[^0-9]{{0,30}}{rating}\s*%?",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            score = float(match.group(1))
+            if 0 <= score <= scale:
+                return score
+    return None
+
+
+def _extract_out_of_ten_rating(text: str, source: str) -> Optional[float]:
+    rating = r"(\d(?:\.\d+)?)"
+    patterns = (
+        rf"\b{source}\b[^.\n]{{0,100}}?{rating}\s*(?:out of 10|/10)\b",
+        rf"{rating}\s*(?:out of 10|/10)\s*[^.\n]{{0,60}}\b{source}\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            score = float(match.group(1))
+            if 0 <= score <= 10:
+                return score
+    return None
+
+
+def _parse_gemini_movie_ratings(answer: str) -> List[Dict[str, object]]:
+    """Extract clearly labeled movie ratings from Gemini's grounded answer."""
+    ratings = []
+    sources = (
+        (
+            "Rotten Tomatoes",
+            "Tomatometer",
+            _extract_labeled_rating(
+                answer,
+                r"(?:Tomatometer|Rotten Tomatoes(?:\s+critic(?:s)?(?:\s+score)?)?)",
+                100,
+            ),
+            100,
+        ),
+        (
+            "Rotten Tomatoes",
+            "Popcornmeter",
+            _extract_labeled_rating(answer, r"Popcornmeter", 100),
+            100,
+        ),
+        (
+            "IMDb",
+            "IMDb rating",
+            _extract_out_of_ten_rating(answer, r"IMDb"),
+            10,
+        ),
+        (
+            "BookMyShow",
+            "BookMyShow user rating",
+            _extract_out_of_ten_rating(answer, r"BookMyShow"),
+            10,
+        ),
+    )
+    for source, label, rating, scale in sources:
+        if rating is not None:
+            ratings.append(
+                {
+                    "source": source,
+                    "label": label,
+                    "rating": rating,
+                    "scale": scale,
+                }
+            )
+    return ratings
+
+
+def get_gemini_movie_ratings(
+    movie_title: str,
+    api_key: str,
+) -> Optional[Dict[str, object]]:
+    """Find grounded movie ratings and consensus using Gemini Google Search."""
+    if not movie_title or not api_key:
+        return None
+
+    prompt = (
+        f"Search the web for current ratings and critical/audience consensus for "
+        f"the movie {movie_title!r}. Report only ratings you can verify from "
+        "the search results. Include Rotten Tomatoes Tomatometer and "
+        "Popcornmeter percentages when available, IMDb and BookMyShow scores "
+        "out of 10 when available, and review or vote counts. Clearly label "
+        "each source and distinguish ratings from different films or editions. "
+        "Do not guess or fill in missing ratings."
+    )
+    response = requests.post(
+        GEMINI_ENDPOINT,
+        params={"key": api_key},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "tools": [{"google_search": {}}],
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1200},
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        return None
+
+    candidate = candidates[0]
+    parts = (candidate.get("content") or {}).get("parts") or []
+    answer = " ".join(
+        part.get("text", "").strip()
+        for part in parts
+        if isinstance(part, dict) and part.get("text")
+    ).strip()
+    if not answer:
+        return None
+
+    sources = []
+    seen_urls = set()
+    metadata = candidate.get("groundingMetadata") or {}
+    for chunk in metadata.get("groundingChunks") or []:
+        web = chunk.get("web") if isinstance(chunk, dict) else None
+        if not isinstance(web, dict):
+            continue
+        url = web.get("uri", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            sources.append(
+                {
+                    "title": web.get("title") or "Google Search source",
+                    "url": url,
+                }
+            )
+
+    return {
+        "answer": answer,
+        "ratings": _parse_gemini_movie_ratings(answer),
+        "sources": sources,
+    }
 
 
 def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object]]:

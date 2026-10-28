@@ -512,6 +512,7 @@ if auto_search or weather_selection_active:
             client,
             SERPAPI_ENABLED,
             serpapi_key,
+            gemini_api_key,
             results_count,
             record_api_call,
         )

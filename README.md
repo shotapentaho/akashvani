@@ -54,6 +54,11 @@
 - Provides direct links to matching music videos
 - Uses the optional SerpAPI integration without sending song queries to the news APIs
 
+### 🎬 **Movie Ratings and Reviews**
+- Search grounded movie ratings and critical/audience consensus with Gemini
+- Displays Rotten Tomatoes Tomatometer and Popcornmeter, IMDb, and BookMyShow scores when found
+- Optional SerpAPI adds IMDb and Rotten Tomatoes review excerpts plus YouTube videos
+
 ### 🎧 **Text-to-Speech (TTS)**
 - Google Text-to-Speech (gTTS) integration
 - Microsoft Edge TTS voices for Indian languages, including Odia
