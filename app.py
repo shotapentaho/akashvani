@@ -97,6 +97,7 @@ except ImportError:
 
 # ===== DATABASE TRACKING =====
 DB_TRACKING_ENABLED = False
+track_api_call = None
 
 try:
     from utils.database import (
@@ -112,6 +113,21 @@ try:
 except Exception:
     print("⚠️ DATABASE TRACKING DISABLED")
     get_supported_languages = None
+
+
+def record_api_call(
+    api_name: str,
+    query_text: str,
+    response_status: str,
+    articles_count: int = 0,
+):
+    if track_api_call is None:
+        print(
+            "❌ API tracking unavailable: database tracking module "
+            "could not be loaded"
+        )
+        return
+    track_api_call(api_name, query_text, response_status, articles_count)
 
 
 # ===== HIDE DEFAULT STREAMLIT ELEMENTS =====
@@ -679,16 +695,15 @@ if auto_search or weather_selection_active:
 
             english_weather_text += "."
 
-            if DB_TRACKING_ENABLED:
-                try:
-                    track_api_call(
-                        "open-meteo",
-                        query,
-                        "success",
-                        1,
-                    )
-                except Exception as e:
-                    print(f"Tracking error: {e}")
+            try:
+                record_api_call(
+                    "open-meteo",
+                    query,
+                    "success",
+                    1,
+                )
+            except Exception as e:
+                print(f"Tracking error: {e}")
 
             st.markdown("---")
             st.write("**📝 Weather in English:**")
@@ -789,14 +804,18 @@ if auto_search or weather_selection_active:
                             st.caption(song["description"])
                         st.caption(f"Source: {song['source']}")
 
+                    try:
+                        record_api_call(
+                            "serpapi",
+                            query,
+                            "success",
+                            len(song_results),
+                        )
+                    except Exception as e:
+                        print(f"Tracking error: {e}")
+
                     if DB_TRACKING_ENABLED:
                         try:
-                            track_api_call(
-                                "serpapi",
-                                query,
-                                "success",
-                                len(song_results),
-                            )
                             track_search_query(
                                 query,
                                 language_code,
@@ -854,15 +873,18 @@ if auto_search or weather_selection_active:
             if articles:
                 api_used = "NewsAPI"
 
+                try:
+                    record_api_call(
+                        "newsapi",
+                        query,
+                        "success",
+                        len(articles),
+                    )
+                except Exception as e:
+                    print(f"Tracking error: {e}")
+
                 if DB_TRACKING_ENABLED:
                     try:
-                        track_api_call(
-                            "newsapi",
-                            query,
-                            "success",
-                            len(articles),
-                        )
-
                         track_search_query(
                             query,
                             language_code,
@@ -874,18 +896,16 @@ if auto_search or weather_selection_active:
 
                     except Exception as e:
                         print(f"Tracking error: {e}")
-
             else:
-                if DB_TRACKING_ENABLED:
-                    try:
-                        track_api_call(
-                            "newsapi",
-                            query,
-                            "failure",
-                            0,
-                        )
-                    except Exception as e:
-                        print(f"Tracking error: {e}")
+                try:
+                    record_api_call(
+                        "newsapi",
+                        query,
+                        "failure",
+                        0,
+                    )
+                except Exception as e:
+                    print(f"Tracking error: {e}")
 
         except Exception as e:
             print(f"NewsAPI error: {e}")
@@ -924,15 +944,18 @@ if auto_search or weather_selection_active:
                         "from backup source"
                     )
 
+                    try:
+                        record_api_call(
+                            "gnews",
+                            query,
+                            "success",
+                            len(articles),
+                        )
+                    except Exception as e:
+                        print(f"Tracking error: {e}")
+
                     if DB_TRACKING_ENABLED:
                         try:
-                            track_api_call(
-                                "gnews",
-                                query,
-                                "success",
-                                len(articles),
-                            )
-
                             track_search_query(
                                 query,
                                 language_code,
@@ -944,18 +967,16 @@ if auto_search or weather_selection_active:
 
                         except Exception as e:
                             print(f"Tracking error: {e}")
-
                 else:
-                    if DB_TRACKING_ENABLED:
-                        try:
-                            track_api_call(
-                                "gnews",
-                                query,
-                                "failure",
-                                0,
-                            )
-                        except Exception:
-                            pass
+                    try:
+                        record_api_call(
+                            "gnews",
+                            query,
+                            "failure",
+                            0,
+                        )
+                    except Exception as e:
+                        print(f"Tracking error: {e}")
 
             except Exception as e:
                 print(f"GNews error: {e}")
@@ -973,16 +994,15 @@ if auto_search or weather_selection_active:
                         results_count,
                     )
                     web_articles.extend(gemini_articles)
-                    if DB_TRACKING_ENABLED:
-                        try:
-                            track_api_call(
-                                "gemini",
-                                query,
-                                "success" if gemini_articles else "failure",
-                                len(gemini_articles),
-                            )
-                        except Exception as e:
-                            print(f"Tracking error: {e}")
+                    try:
+                        record_api_call(
+                            "gemini",
+                            query,
+                            "success" if gemini_articles else "failure",
+                            len(gemini_articles),
+                        )
+                    except Exception as e:
+                        print(f"Tracking error: {e}")
 
                 if serpapi_key:
                     bbc_articles = get_bbc_search_results(
@@ -991,16 +1011,15 @@ if auto_search or weather_selection_active:
                         results_count,
                     )
                     web_articles.extend(bbc_articles)
-                    if DB_TRACKING_ENABLED:
-                        try:
-                            track_api_call(
-                                "serpapi",
-                                query,
-                                "success" if bbc_articles else "failure",
-                                len(bbc_articles),
-                            )
-                        except Exception as e:
-                            print(f"Tracking error: {e}")
+                    try:
+                        record_api_call(
+                            "serpapi",
+                            query,
+                            "success" if bbc_articles else "failure",
+                            len(bbc_articles),
+                        )
+                    except Exception as e:
+                        print(f"Tracking error: {e}")
 
                     youtube_articles = get_youtube_search_results(
                         news_query,
@@ -1008,16 +1027,15 @@ if auto_search or weather_selection_active:
                         results_count,
                     )
                     web_articles.extend(youtube_articles)
-                    if DB_TRACKING_ENABLED:
-                        try:
-                            track_api_call(
-                                "serpapi",
-                                query,
-                                "success" if youtube_articles else "failure",
-                                len(youtube_articles),
-                            )
-                        except Exception as e:
-                            print(f"Tracking error: {e}")
+                    try:
+                        record_api_call(
+                            "serpapi",
+                            query,
+                            "success" if youtube_articles else "failure",
+                            len(youtube_articles),
+                        )
+                    except Exception as e:
+                        print(f"Tracking error: {e}")
 
             deduplicated = {}
             for article in web_articles:
@@ -1043,16 +1061,15 @@ if auto_search or weather_selection_active:
                     "Here is an OpenAI-generated answer based on available knowledge."
                 )
 
-                if DB_TRACKING_ENABLED:
-                    try:
-                        track_api_call(
-                            "openai",
-                            query,
-                            "success",
-                            len(articles),
-                        )
-                    except Exception as e:
-                        print(f"Tracking error: {e}")
+                try:
+                    record_api_call(
+                        "openai",
+                        query,
+                        "success",
+                        len(articles),
+                    )
+                except Exception as e:
+                    print(f"Tracking error: {e}")
 
         # ===== NO RESULTS =====
         if not articles:
@@ -1107,16 +1124,15 @@ if auto_search or weather_selection_active:
                         if match_data:
                             live_score_found = True
 
-                            if DB_TRACKING_ENABLED:
-                                try:
-                                    track_api_call(
-                                        "serpapi",
-                                        query,
-                                        "success",
-                                        1,
-                                    )
-                                except Exception:
-                                    pass
+                            try:
+                                record_api_call(
+                                    "serpapi",
+                                    query,
+                                    "success",
+                                    1,
+                                )
+                            except Exception as e:
+                                print(f"Tracking error: {e}")
 
                             display_cricket_score(match_data)
 
