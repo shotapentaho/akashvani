@@ -61,7 +61,7 @@ from utils.auto_search import (
     should_auto_run,
 )
 from utils.song_fetcher import is_song_query
-from utils.movie_fetcher import is_movie_review_query
+from utils.movie_fetcher import is_movie_query
 
 
 try:
@@ -502,7 +502,7 @@ if auto_search or weather_selection_active:
             voice_selection, client, record_api_call,
         )
 
-    elif is_movie_review_query(query):
+    elif is_movie_query(query):
         render_movie_reviews(
             query,
             language_code,
