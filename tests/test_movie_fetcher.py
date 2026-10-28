@@ -7,6 +7,7 @@ from utils.movie_fetcher import (
     get_imdb_reviews,
     get_rotten_tomatoes_rating,
     get_rotten_tomatoes_reviews,
+    is_movie_query,
     is_movie_review_query,
 )
 
@@ -18,9 +19,25 @@ class MovieFetcherTests(unittest.TestCase):
         self.assertTrue(is_movie_review_query("Oppenheimer review"))
         self.assertFalse(is_movie_review_query("movie news"))
 
+    def test_movie_query_detection(self):
+        for query in (
+            "Dune movie",
+            "movie Dune",
+            "Dune rating",
+            "movie rating of Dune",
+            "reviews for Interstellar",
+        ):
+            with self.subTest(query=query):
+                self.assertTrue(is_movie_query(query))
+        self.assertFalse(is_movie_query("movie news"))
+        self.assertFalse(is_movie_query("latest technology news"))
+
     def test_extract_movie_title_from_common_phrases(self):
         self.assertEqual(extract_movie_title("movie review of Dune"), "Dune")
         self.assertEqual(extract_movie_title("movie review Dune"), "Dune")
+        self.assertEqual(extract_movie_title("Dune movie"), "Dune")
+        self.assertEqual(extract_movie_title("Dune rating"), "Dune")
+        self.assertEqual(extract_movie_title("movie rating of Dune"), "Dune")
         self.assertEqual(
             extract_movie_title("reviews for the movie Interstellar"),
             "Interstellar",

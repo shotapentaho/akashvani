@@ -44,18 +44,41 @@ def is_movie_review_query(query: str) -> bool:
     )
 
 
+def is_movie_query(query: str) -> bool:
+    """Return whether a query explicitly asks about a movie or its rating."""
+    normalized = re.sub(r"\s+", " ", query or "").strip()
+    if not normalized:
+        return False
+
+    if is_movie_review_query(normalized):
+        return True
+
+    has_rating = re.search(
+        r"\b(?:ratings?|rated|tomatometer)\b",
+        normalized,
+        re.IGNORECASE,
+    )
+    has_movie_marker = re.search(r"\b(?:movie|film)\b", normalized, re.IGNORECASE)
+    if not has_rating and not has_movie_marker:
+        return False
+
+    title = extract_movie_title(normalized)
+    return bool(title and title.casefold() not in {"news", "rating", "ratings"})
+
+
 def extract_movie_title(query: str) -> str:
     """Extract the movie title from common movie-review search phrases."""
     title = re.sub(r"\s+", " ", query or "").strip()
     title = re.sub(
-        r"^(?:(?:can you|please)\s+)?(?:movie|film)\s+reviews?"
-        r"(?:\s+(?:of|for|about))?\s*",
+        r"^(?:(?:can you|please)\s+)?(?:movie|film)\s+"
+        r"(?:(?:reviews?|ratings?)\s*)?(?:of|for|about)?\s*",
         "",
         title,
         flags=re.IGNORECASE,
     )
     title = re.sub(
-        r"^(?:reviews?|review)\s+(?:of|for)\s+(?:(?:the\s+)?(?:movie|film)\s+)?",
+        r"^(?:reviews?|review|ratings?|rating)\s+(?:of|for)\s+"
+        r"(?:(?:the\s+)?(?:movie|film)\s+)?",
         "",
         title,
         flags=re.IGNORECASE,
@@ -66,7 +89,13 @@ def extract_movie_title(query: str) -> str:
         title,
         flags=re.IGNORECASE,
     )
-    title = re.sub(r"\s+(?:movie\s+)?reviews?\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(
+        r"\s+(?:(?:movie|film)\s+)?(?:reviews?|ratings?|rated)\s*$",
+        "",
+        title,
+        flags=re.IGNORECASE,
+    )
+    title = re.sub(r"\s+(?:movie|film)\s*$", "", title, flags=re.IGNORECASE)
     return title.strip(" \t\r\n.,!?")
 
 

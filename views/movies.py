@@ -12,6 +12,7 @@ from utils.translator import (
     translate_to_language,
 )
 from utils.tts_handler import is_tts_available, text_to_speech
+from utils.web_search_fetcher import get_youtube_search_results
 
 
 def render_movie_reviews(
@@ -160,6 +161,32 @@ def render_movie_reviews(
             "Open Rotten Tomatoes for each complete review."
         )
         _render_reviews(rotten_tomatoes_reviews, language_code, client)
+
+    youtube_videos = []
+    try:
+        with st.spinner(f"🔎 Finding YouTube videos for '{movie_title}'..."):
+            youtube_videos = get_youtube_search_results(
+                f"{movie_title} movie",
+                serpapi_key,
+                top_k=results_count,
+            )
+        record_api_call(
+            "serpapi_movie_youtube",
+            movie_title,
+            "success" if youtube_videos else "failure",
+            len(youtube_videos),
+        )
+    except Exception as e:
+        print(f"Movie YouTube search error: {e}")
+        record_api_call("serpapi_movie_youtube", movie_title, "failure", 0)
+        st.warning("YouTube movie videos are temporarily unavailable.")
+
+    if youtube_videos:
+        st.markdown("### YouTube videos")
+        for index, video in enumerate(youtube_videos, start=1):
+            st.markdown(f"**{video['title']}**")
+            st.link_button(f"Watch on YouTube ({index})", video["url"])
+
     if not reviews:
         st.info(
             f"No review excerpts were found for '{movie_title}'. "
