@@ -118,6 +118,52 @@ def translate_to_language(text: str, target_lang_code: str, client) -> str:
         st.error(f"❌ Translation Error: {e}")
         return text
 
+
+def create_movie_review_script(
+    movie_title: str,
+    reviews: list,
+    language_code: str,
+    client,
+) -> str:
+    """Create a short spoken script based only on the supplied IMDb excerpts."""
+    lang_name = LANGUAGE_NAMES.get(language_code, "English")
+    review_text = "\n\n".join(
+        f"- {review['text']}" for review in reviews if review.get("text")
+    )
+    if not review_text:
+        raise ValueError("At least one review excerpt is required")
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    f"Create a clear, conversational spoken script in {lang_name} "
+                    "that summarizes the opinions in the provided movie-review "
+                    "excerpts. Use simple language for senior listeners. "
+                    "Mention that opinions may differ. Do not invent plot details, "
+                    "facts, or consensus, and do not reproduce the reviews "
+                    "verbatim. Return only the script."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Movie: {movie_title}\n\n"
+                    f"IMDb review excerpts:\n{review_text}"
+                ),
+            },
+        ],
+        max_tokens=300,
+        temperature=0.3,
+    )
+    script = response.choices[0].message.content.strip()
+    if not script:
+        raise ValueError("The movie review script was empty")
+    return script
+
+
 def get_ai_summary(text: str, language_code: str, client, duration_mode: str = "standard") -> str:
     """
     Create senior-friendly summary using OpenAI
