@@ -43,7 +43,7 @@ def render_movie_reviews(
 
     imdb_rating = None
     try:
-        with st.spinner(f"🔎 Finding IMDb rating for '{movie_title}'..."):
+        with st.spinner(f"🔎 Finding IMDb rating and director for '{movie_title}'..."):
             imdb_rating = get_imdb_rating(movie_title, serpapi_key)
         record_api_call(
             "serpapi_imdb_rating",
@@ -54,10 +54,19 @@ def render_movie_reviews(
     except Exception as e:
         print(f"IMDb rating search error: {e}")
         record_api_call("serpapi_imdb_rating", movie_title, "failure", 0)
-        st.warning("The IMDb rating is temporarily unavailable.")
+        st.warning("IMDb movie details are temporarily unavailable.")
 
     if imdb_rating:
-        st.metric("IMDb rating", imdb_rating["rating"])
+        if imdb_rating.get("rating"):
+            st.metric("IMDb rating (out of 10)", imdb_rating["rating"])
+        for field, label in (
+            ("director", "Director"),
+            ("producer", "Producer"),
+            ("actors", "Actors"),
+            ("writers", "Writers"),
+        ):
+            if imdb_rating.get(field):
+                st.write(f"**{label}:** {imdb_rating[field]}")
         st.link_button("View on IMDb", imdb_rating["url"])
 
     imdb_reviews = []

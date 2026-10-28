@@ -69,6 +69,15 @@ class MovieFetcherTests(unittest.TestCase):
     def test_get_imdb_rating_from_title_result(self, get):
         response = Mock()
         response.json.return_value = {
+            "knowledge_graph": {
+                "directed_by": [{"name": "Denis Villeneuve"}],
+                "produced_by": [{"name": "Mary Parent"}],
+                "cast": [
+                    {"name": "Timothée Chalamet"},
+                    {"name": "Rebecca Ferguson"},
+                ],
+                "written_by": "Jon Spaihts, Denis Villeneuve, Eric Roth",
+            },
             "organic_results": [
                 {
                     "title": "Dune (2021) - IMDb",
@@ -88,11 +97,18 @@ class MovieFetcherTests(unittest.TestCase):
 
         self.assertEqual(
             rating,
-            {"rating": "8.0/10", "url": "https://www.imdb.com/title/tt1160419/"},
+            {
+                "rating": 8.0,
+                "director": "Denis Villeneuve",
+                "producer": "Mary Parent",
+                "actors": "Timothée Chalamet, Rebecca Ferguson",
+                "writers": "Jon Spaihts, Denis Villeneuve, Eric Roth",
+                "url": "https://www.imdb.com/title/tt1160419/",
+            },
         )
         self.assertEqual(
             get.call_args.kwargs["params"]["q"],
-            'site:imdb.com/title "Dune" IMDb rating',
+            'site:imdb.com/title "Dune" IMDb rating director producer cast writer',
         )
 
     @patch("utils.movie_fetcher.requests.get")
