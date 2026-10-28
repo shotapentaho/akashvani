@@ -5,6 +5,7 @@ from utils.movie_fetcher import (
     extract_movie_title,
     get_imdb_rating,
     get_imdb_reviews,
+    get_rotten_tomatoes_rating,
     get_rotten_tomatoes_reviews,
     is_movie_review_query,
 )
@@ -109,6 +110,39 @@ class MovieFetcherTests(unittest.TestCase):
         self.assertEqual(
             get.call_args.kwargs["params"]["q"],
             'site:imdb.com/title "Dune" IMDb rating director producer cast writer',
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_rotten_tomatoes_rating_from_movie_result(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "organic_results": [
+                {
+                    "title": "Dune Reviews",
+                    "link": "https://www.rottentomatoes.com/m/dune",
+                    "snippet": "Tomatometer: 83%.",
+                },
+                {
+                    "title": "Other source",
+                    "link": "https://example.com/m/dune",
+                    "snippet": "Tomatometer: 99%.",
+                },
+            ]
+        }
+        get.return_value = response
+
+        rating = get_rotten_tomatoes_rating("Dune", "api-key")
+
+        self.assertEqual(
+            rating,
+            {
+                "rating": 83.0,
+                "url": "https://www.rottentomatoes.com/m/dune",
+            },
+        )
+        self.assertEqual(
+            get.call_args.kwargs["params"]["q"],
+            'site:rottentomatoes.com/m "Dune" Tomatometer',
         )
 
     @patch("utils.movie_fetcher.requests.get")

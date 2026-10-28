@@ -207,6 +207,51 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
     return None
 
 
+def get_rotten_tomatoes_rating(
+    movie_title: str,
+    api_key: str,
+) -> Optional[Dict[str, object]]:
+    """Find a Rotten Tomatoes Tomatometer score in Google results."""
+    if not movie_title or not api_key:
+        return None
+
+    payload = _google_search(
+        f'site:rottentomatoes.com/m "{movie_title}" Tomatometer',
+        api_key,
+    )
+    rating_pattern = re.compile(
+        r"(?:Tomatometer\s*[:\-]?\s*(\d{1,3}(?:\.\d+)?)\s*%|"
+        r"(\d{1,3}(?:\.\d+)?)\s*%\s*Tomatometer)",
+        re.IGNORECASE,
+    )
+
+    for result in payload.get("organic_results") or []:
+        url = result.get("link") or result.get("url", "")
+        if (
+            not _is_domain(url, "rottentomatoes.com")
+            or "/m/" not in urlparse(url).path.lower()
+        ):
+            continue
+
+        text = " ".join(
+            part
+            for part in (
+                result.get("title", ""),
+                result.get("snippet", ""),
+                " ".join(
+                    str(value)
+                    for value in (result.get("rich_snippet") or {}).values()
+                ),
+            )
+            if part
+        )
+        rating_match = rating_pattern.search(text)
+        if rating_match:
+            score = rating_match.group(1) or rating_match.group(2)
+            return {"rating": float(score), "url": url}
+    return None
+
+
 def get_rotten_tomatoes_reviews(
     movie_title: str,
     api_key: str,

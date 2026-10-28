@@ -4,6 +4,7 @@ from utils.movie_fetcher import (
     extract_movie_title,
     get_imdb_rating,
     get_imdb_reviews,
+    get_rotten_tomatoes_rating,
     get_rotten_tomatoes_reviews,
 )
 from utils.translator import (
@@ -68,6 +69,38 @@ def render_movie_reviews(
             if imdb_rating.get(field):
                 st.write(f"**{label}:** {imdb_rating[field]}")
         st.link_button("View on IMDb", imdb_rating["url"])
+
+    rotten_tomatoes_rating = None
+    try:
+        with st.spinner(
+            f"🔎 Finding Rotten Tomatoes Tomatometer for '{movie_title}'..."
+        ):
+            rotten_tomatoes_rating = get_rotten_tomatoes_rating(
+                movie_title,
+                serpapi_key,
+            )
+        record_api_call(
+            "serpapi_rotten_tomatoes_rating",
+            movie_title,
+            "success" if rotten_tomatoes_rating else "failure",
+            int(bool(rotten_tomatoes_rating)),
+        )
+    except Exception as e:
+        print(f"Rotten Tomatoes rating search error: {e}")
+        record_api_call(
+            "serpapi_rotten_tomatoes_rating",
+            movie_title,
+            "failure",
+            0,
+        )
+        st.warning("The Rotten Tomatoes Tomatometer is temporarily unavailable.")
+
+    if rotten_tomatoes_rating:
+        st.metric(
+            "Rotten Tomatoes Tomatometer (%)",
+            rotten_tomatoes_rating["rating"],
+        )
+        st.link_button("View on Rotten Tomatoes", rotten_tomatoes_rating["url"])
 
     imdb_reviews = []
     try:
