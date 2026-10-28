@@ -125,7 +125,7 @@ def create_movie_review_script(
     language_code: str,
     client,
 ) -> str:
-    """Create a short spoken script based only on the supplied IMDb excerpts."""
+    """Create a short spoken script based only on the supplied review excerpts."""
     lang_name = LANGUAGE_NAMES.get(language_code, "English")
     review_text = "\n\n".join(
         f"- {review['text']}" for review in reviews if review.get("text")
@@ -151,7 +151,7 @@ def create_movie_review_script(
                 "role": "user",
                 "content": (
                     f"Movie: {movie_title}\n\n"
-                    f"IMDb review excerpts:\n{review_text}"
+                    f"Movie review excerpts:\n{review_text}"
                 ),
             },
         ],
