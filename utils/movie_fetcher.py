@@ -113,20 +113,124 @@ def get_imdb_reviews(
     return reviews
 
 
-def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, str]]:
-    """Find an IMDb rating in Google results for IMDb movie title pages."""
+def _display_text(value) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        return _display_text(value.get("name") or value.get("value") or "")
+    if isinstance(value, list):
+        return ", ".join(filter(None, (_display_text(item) for item in value)))
+    return ""
+
+
+def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object]]:
+    """Find IMDb rating and available movie credits in Google results."""
     if not movie_title or not api_key:
         return None
 
     payload = _google_search(
-        f'site:imdb.com/title "{movie_title}" IMDb rating',
+        f'site:imdb.com/title "{movie_title}" IMDb rating director producer cast writer',
         api_key,
     )
     rating_pattern = re.compile(r"(?<!\d)(\d(?:\.\d)?)/10\b", re.IGNORECASE)
+    director_pattern = re.compile(
+        r"\b(?:directed by|director(?:s)?\s*[:\-])\s*([^|.;\n]+)",
+        re.IGNORECASE,
+    )
 
     for result in payload.get("organic_results") or []:
         url = result.get("link") or result.get("url", "")
         if not _is_domain(url, "imdb.com") or "/title/" not in urlparse(url).path:
+            continue
+
+        rich_snippet = result.get("rich_snippet") or {}
+        text = " ".join(
+            part
+            for part in (
+                result.get("title", ""),
+                result.get("snippet", ""),
+                " ".join(
+                    str(value)
+                    for value in rich_snippet.values()
+                ),
+            )
+            if part
+        )
+        rating_match = rating_pattern.search(text)
+        knowledge_graph = payload.get("knowledge_graph") or {}
+        details = {"url": url}
+        if rating_match:
+            details["rating"] = float(rating_match.group(1))
+
+        credits = {
+            "director": (("director", "directed_by", "directed by"), director_pattern),
+            "producer": (
+                ("producer", "producers", "produced_by", "produced by"),
+                re.compile(
+                    r"\b(?:produced by|producers?\s*[:\-])\s*([^|.;\n]+)",
+                    re.IGNORECASE,
+                ),
+            ),
+            "actors": (
+                ("actors", "cast", "starring", "stars"),
+                re.compile(
+                    r"\b(?:starring|stars|cast\s*[:\-])\s*([^|.;\n]+)",
+                    re.IGNORECASE,
+                ),
+            ),
+            "writers": (
+                ("writers", "writer", "written_by", "written by"),
+                re.compile(
+                    r"\b(?:written by|writers?\s*[:\-])\s*([^|.;\n]+)",
+                    re.IGNORECASE,
+                ),
+            ),
+        }
+        for field, (aliases, pattern) in credits.items():
+            credit = next(
+                (
+                    _display_text(knowledge_graph[key])
+                    for key in aliases
+                    if knowledge_graph.get(key)
+                    and _display_text(knowledge_graph[key])
+                ),
+                None,
+            )
+            if not credit:
+                credit_match = pattern.search(text)
+                if credit_match:
+                    credit = credit_match.group(1).strip()
+            if credit:
+                details[field] = credit
+        if len(details) > 1:
+            return details
+    return None
+
+
+def get_rotten_tomatoes_rating(
+    movie_title: str,
+    api_key: str,
+) -> Optional[Dict[str, object]]:
+    """Find a Rotten Tomatoes Tomatometer score in Google results."""
+    if not movie_title or not api_key:
+        return None
+
+    payload = _google_search(
+        f'site:rottentomatoes.com/m "{movie_title}" Tomatometer',
+        api_key,
+    )
+    rating_pattern = re.compile(
+        r"(?:Tomatometer\s*[:\-]?\s*(\d{1,3}(?:\.\d+)?)\s*%|"
+        r"(\d{1,3}(?:\.\d+)?)\s*%\s*Tomatometer)",
+        re.IGNORECASE,
+    )
+
+    for result in payload.get("organic_results") or []:
+        url = result.get("link") or result.get("url", "")
+        if (
+            not _is_domain(url, "rottentomatoes.com")
+            or "/m/" not in urlparse(url).path.lower()
+        ):
             continue
 
         text = " ".join(
@@ -143,10 +247,8 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, str]]:
         )
         rating_match = rating_pattern.search(text)
         if rating_match:
-            return {
-                "rating": f"{rating_match.group(1)}/10",
-                "url": url,
-            }
+            score = rating_match.group(1) or rating_match.group(2)
+            return {"rating": float(score), "url": url}
     return None
 
 

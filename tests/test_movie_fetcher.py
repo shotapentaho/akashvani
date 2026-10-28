@@ -5,6 +5,7 @@ from utils.movie_fetcher import (
     extract_movie_title,
     get_imdb_rating,
     get_imdb_reviews,
+    get_rotten_tomatoes_rating,
     get_rotten_tomatoes_reviews,
     is_movie_review_query,
 )
@@ -69,6 +70,15 @@ class MovieFetcherTests(unittest.TestCase):
     def test_get_imdb_rating_from_title_result(self, get):
         response = Mock()
         response.json.return_value = {
+            "knowledge_graph": {
+                "directed_by": [{"name": "Denis Villeneuve"}],
+                "produced_by": [{"name": "Mary Parent"}],
+                "cast": [
+                    {"name": "Timothée Chalamet"},
+                    {"name": "Rebecca Ferguson"},
+                ],
+                "written_by": "Jon Spaihts, Denis Villeneuve, Eric Roth",
+            },
             "organic_results": [
                 {
                     "title": "Dune (2021) - IMDb",
@@ -88,11 +98,51 @@ class MovieFetcherTests(unittest.TestCase):
 
         self.assertEqual(
             rating,
-            {"rating": "8.0/10", "url": "https://www.imdb.com/title/tt1160419/"},
+            {
+                "rating": 8.0,
+                "director": "Denis Villeneuve",
+                "producer": "Mary Parent",
+                "actors": "Timothée Chalamet, Rebecca Ferguson",
+                "writers": "Jon Spaihts, Denis Villeneuve, Eric Roth",
+                "url": "https://www.imdb.com/title/tt1160419/",
+            },
         )
         self.assertEqual(
             get.call_args.kwargs["params"]["q"],
-            'site:imdb.com/title "Dune" IMDb rating',
+            'site:imdb.com/title "Dune" IMDb rating director producer cast writer',
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_rotten_tomatoes_rating_from_movie_result(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "organic_results": [
+                {
+                    "title": "Dune Reviews",
+                    "link": "https://www.rottentomatoes.com/m/dune",
+                    "snippet": "Tomatometer: 83%.",
+                },
+                {
+                    "title": "Other source",
+                    "link": "https://example.com/m/dune",
+                    "snippet": "Tomatometer: 99%.",
+                },
+            ]
+        }
+        get.return_value = response
+
+        rating = get_rotten_tomatoes_rating("Dune", "api-key")
+
+        self.assertEqual(
+            rating,
+            {
+                "rating": 83.0,
+                "url": "https://www.rottentomatoes.com/m/dune",
+            },
+        )
+        self.assertEqual(
+            get.call_args.kwargs["params"]["q"],
+            'site:rottentomatoes.com/m "Dune" Tomatometer',
         )
 
     @patch("utils.movie_fetcher.requests.get")
