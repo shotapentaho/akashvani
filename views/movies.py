@@ -1,6 +1,11 @@
 import streamlit as st
 
-from utils.movie_fetcher import extract_movie_title, get_imdb_reviews
+from utils.movie_fetcher import (
+    extract_movie_title,
+    get_imdb_rating,
+    get_imdb_reviews,
+    get_rotten_tomatoes_reviews,
+)
 from utils.translator import (
     create_movie_review_script,
     translate_to_language,
@@ -36,9 +41,29 @@ def render_movie_reviews(
         )
         return
 
+    imdb_rating = None
+    try:
+        with st.spinner(f"🔎 Finding IMDb rating for '{movie_title}'..."):
+            imdb_rating = get_imdb_rating(movie_title, serpapi_key)
+        record_api_call(
+            "serpapi_imdb_rating",
+            movie_title,
+            "success" if imdb_rating else "failure",
+            int(bool(imdb_rating)),
+        )
+    except Exception as e:
+        print(f"IMDb rating search error: {e}")
+        record_api_call("serpapi_imdb_rating", movie_title, "failure", 0)
+        st.warning("The IMDb rating is temporarily unavailable.")
+
+    if imdb_rating:
+        st.metric("IMDb rating", imdb_rating["rating"])
+        st.link_button("View on IMDb", imdb_rating["url"])
+
+    imdb_reviews = []
     try:
         with st.spinner(f"🔎 Finding IMDb reviews for '{movie_title}'..."):
-            reviews = get_imdb_reviews(
+            imdb_reviews = get_imdb_reviews(
                 movie_title,
                 serpapi_key,
                 top_k=results_count,
@@ -46,37 +71,59 @@ def render_movie_reviews(
         record_api_call(
             "serpapi_imdb_reviews",
             movie_title,
-            "success" if reviews else "failure",
-            len(reviews),
+            "success" if imdb_reviews else "failure",
+            len(imdb_reviews),
         )
     except Exception as e:
         print(f"IMDb review search error: {e}")
         record_api_call("serpapi_imdb_reviews", movie_title, "failure", 0)
-        st.error("IMDb reviews are temporarily unavailable. Please try again later.")
-        return
+        st.warning("IMDb reviews are temporarily unavailable.")
 
+    rotten_tomatoes_reviews = []
+    try:
+        with st.spinner(f"🔎 Finding Rotten Tomatoes reviews for '{movie_title}'..."):
+            rotten_tomatoes_reviews = get_rotten_tomatoes_reviews(
+                movie_title,
+                serpapi_key,
+                top_k=results_count,
+            )
+        record_api_call(
+            "serpapi_rotten_tomatoes_reviews",
+            movie_title,
+            "success" if rotten_tomatoes_reviews else "failure",
+            len(rotten_tomatoes_reviews),
+        )
+    except Exception as e:
+        print(f"Rotten Tomatoes review search error: {e}")
+        record_api_call(
+            "serpapi_rotten_tomatoes_reviews",
+            movie_title,
+            "failure",
+            0,
+        )
+        st.warning("Rotten Tomatoes reviews are temporarily unavailable.")
+
+    reviews = imdb_reviews + rotten_tomatoes_reviews
+    if imdb_reviews:
+        st.markdown("### IMDb reviews")
+        st.caption(
+            "Short excerpts from IMDb review pages found through search. "
+            "Open IMDb for each complete review."
+        )
+        _render_reviews(imdb_reviews, language_code, client)
+    if rotten_tomatoes_reviews:
+        st.markdown("### Rotten Tomatoes reviews")
+        st.caption(
+            "Short excerpts from Rotten Tomatoes review pages found through search. "
+            "Open Rotten Tomatoes for each complete review."
+        )
+        _render_reviews(rotten_tomatoes_reviews, language_code, client)
     if not reviews:
         st.info(
-            f"No IMDb review excerpts were found for '{movie_title}'. "
+            f"No review excerpts were found for '{movie_title}'. "
             "Try checking the movie title or using a shorter title."
         )
         return
-
-    st.caption(
-        "Short excerpts from IMDb review pages found through search. "
-        "Open IMDb for each complete review."
-    )
-    for index, review in enumerate(reviews, start=1):
-        st.markdown(f"### {index}. {review['title']}")
-        review_text = review["text"]
-        if language_code != "en":
-            review_text = translate_to_language(
-                review_text,
-                language_code,
-                client,
-            )
-        st.write(review_text)
-        st.link_button("Read review on IMDb", review["url"])
 
     try:
         with st.spinner(f"✍️ Creating a spoken review in {selected_language}..."):
@@ -108,5 +155,19 @@ def render_movie_reviews(
         print(f"Movie review script error: {e}")
         st.error(
             f"Could not create the spoken review in {selected_language}. "
-            "The IMDb review excerpts are still available above."
+            "The review excerpts are still available above."
         )
+
+
+def _render_reviews(reviews, language_code, client):
+    for index, review in enumerate(reviews, start=1):
+        st.markdown(f"#### {index}. {review['title']}")
+        review_text = review["text"]
+        if language_code != "en":
+            review_text = translate_to_language(
+                review_text,
+                language_code,
+                client,
+            )
+        st.write(review_text)
+        st.link_button(f"Read review on {review['source']}", review["url"])
