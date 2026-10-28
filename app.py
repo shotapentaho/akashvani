@@ -9,6 +9,7 @@ import uuid
 import streamlit as st
 
 from footer import render_footer
+from views.movies import render_movie_reviews
 from views.news import render_news
 from views.songs import render_songs
 from views.weather import render_weather
@@ -60,6 +61,7 @@ from utils.auto_search import (
     should_auto_run,
 )
 from utils.song_fetcher import is_song_query
+from utils.movie_fetcher import is_movie_review_query
 
 
 try:
@@ -446,6 +448,9 @@ with st.container():
         st.caption(
             "For Live Cricket: Cricket Score or India vs Australia score. "
         )
+        st.caption(
+            "For movie reviews, try: movie review of Dune."
+        )
         
 
     else:
@@ -495,6 +500,20 @@ if auto_search or weather_selection_active:
         render_weather(
             query, language_code, selected_language, speech_speed,
             voice_selection, client, record_api_call,
+        )
+
+    elif is_movie_review_query(query):
+        render_movie_reviews(
+            query,
+            language_code,
+            selected_language,
+            speech_speed,
+            voice_selection,
+            client,
+            SERPAPI_ENABLED,
+            serpapi_key,
+            results_count,
+            record_api_call,
         )
 
     elif is_song_query(query):
