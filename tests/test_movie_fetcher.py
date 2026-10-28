@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 from utils.movie_fetcher import (
     extract_movie_title,
+    get_gemini_movie_ratings,
     get_imdb_rating,
     get_imdb_reviews,
     get_rotten_tomatoes_rating,
@@ -44,6 +45,74 @@ class MovieFetcherTests(unittest.TestCase):
         )
         self.assertEqual(extract_movie_title("Oppenheimer review"), "Oppenheimer")
         self.assertEqual(extract_movie_title("movie review"), "")
+
+    def test_parse_gemini_movie_ratings_from_grounded_answer(self):
+        response_text = (
+            "Drishyam: The Conclusion holds the following ratings. "
+            "Rotten Tomatoes: 100% Tomatometer (from 17 critic reviews) "
+            "and a 90% Popcornmeter score. IMDb: 7.7 out of 10 average "
+            "rating. BookMyShow: 8.9 out of 10 user rating."
+        )
+        response = Mock()
+        response.json.return_value = {
+            "candidates": [{
+                "content": {"parts": [{"text": response_text}]},
+                "groundingMetadata": {
+                    "groundingChunks": [
+                        {
+                            "web": {
+                                "title": "Rotten Tomatoes",
+                                "uri": "https://www.rottentomatoes.com/m/drishyam",
+                            }
+                        },
+                        {
+                            "web": {
+                                "title": "IMDb",
+                                "uri": "https://www.imdb.com/title/tt123/",
+                            }
+                        },
+                    ]
+                },
+            }]
+        }
+
+        with patch("utils.movie_fetcher.requests.post", return_value=response) as post:
+            result = get_gemini_movie_ratings("Drishyam: The Conclusion", "key")
+
+        self.assertEqual(
+            result["ratings"],
+            [
+                {
+                    "source": "Rotten Tomatoes",
+                    "label": "Tomatometer",
+                    "rating": 100.0,
+                    "scale": 100,
+                },
+                {
+                    "source": "Rotten Tomatoes",
+                    "label": "Popcornmeter",
+                    "rating": 90.0,
+                    "scale": 100,
+                },
+                {
+                    "source": "IMDb",
+                    "label": "IMDb rating",
+                    "rating": 7.7,
+                    "scale": 10,
+                },
+                {
+                    "source": "BookMyShow",
+                    "label": "BookMyShow user rating",
+                    "rating": 8.9,
+                    "scale": 10,
+                },
+            ],
+        )
+        self.assertEqual(
+            result["sources"][0]["url"],
+            "https://www.rottentomatoes.com/m/drishyam",
+        )
+        self.assertEqual(post.call_args.kwargs["params"], {"key": "key"})
 
     @patch("utils.movie_fetcher.requests.get")
     def test_get_imdb_reviews_filters_search_results(self, get):

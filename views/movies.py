@@ -2,6 +2,7 @@ import streamlit as st
 
 from utils.movie_fetcher import (
     extract_movie_title,
+    get_gemini_movie_ratings,
     get_imdb_rating,
     get_imdb_reviews,
     get_rotten_tomatoes_rating,
@@ -24,6 +25,7 @@ def render_movie_reviews(
     client,
     serpapi_enabled,
     serpapi_key,
+    gemini_api_key,
     results_count,
     record_api_call,
 ):
@@ -36,10 +38,57 @@ def render_movie_reviews(
         st.info("Please include the movie title, for example: movie review of Dune.")
         return
 
+    gemini_movie_data = None
+    if gemini_api_key:
+        try:
+            with st.spinner(
+                f"🔎 Finding grounded ratings and consensus for '{movie_title}'..."
+            ):
+                gemini_movie_data = get_gemini_movie_ratings(
+                    movie_title,
+                    gemini_api_key,
+                )
+            record_api_call(
+                "gemini_movie_ratings",
+                movie_title,
+                "success" if gemini_movie_data else "failure",
+                len(gemini_movie_data["ratings"]) if gemini_movie_data else 0,
+            )
+        except Exception as e:
+            print(f"Gemini movie rating search error: {e}")
+            record_api_call("gemini_movie_ratings", movie_title, "failure", 0)
+            st.warning("Gemini movie ratings are temporarily unavailable.")
+
+    gemini_ratings = (
+        gemini_movie_data.get("ratings", []) if gemini_movie_data else []
+    )
+    if gemini_movie_data:
+        st.markdown("### Ratings and consensus from Gemini")
+        if gemini_ratings:
+            rating_columns = st.columns(min(len(gemini_ratings), 4))
+            for column, rating in zip(rating_columns, gemini_ratings):
+                column.metric(
+                    f"{rating['label']} ({rating['scale']})",
+                    rating["rating"],
+                )
+        else:
+            st.info("No clearly labeled ratings were found in the grounded results.")
+        with st.expander("Gemini summary and sources"):
+            st.write(gemini_movie_data["answer"])
+            for index, source in enumerate(
+                gemini_movie_data.get("sources", []),
+                start=1,
+            ):
+                st.link_button(
+                    source["title"],
+                    source["url"],
+                    key=f"gemini_movie_source_{index}",
+                )
+
     if not serpapi_enabled:
-        st.warning(
-            "IMDb review search is not configured. Please try again later "
-            "or contact support."
+        st.info(
+            "IMDb/Rotten Tomatoes review excerpts and YouTube videos require "
+            "SerpAPI."
         )
         return
 
@@ -59,7 +108,10 @@ def render_movie_reviews(
         st.warning("IMDb movie details are temporarily unavailable.")
 
     if imdb_rating:
-        if imdb_rating.get("rating"):
+        has_gemini_imdb_rating = any(
+            rating["source"] == "IMDb" for rating in gemini_ratings
+        )
+        if imdb_rating.get("rating") and not has_gemini_imdb_rating:
             st.metric("IMDb rating (out of 10)", imdb_rating["rating"])
         for field, label in (
             ("director", "Director"),
@@ -97,10 +149,14 @@ def render_movie_reviews(
         st.warning("The Rotten Tomatoes Tomatometer is temporarily unavailable.")
 
     if rotten_tomatoes_rating:
-        st.metric(
-            "Rotten Tomatoes Tomatometer (%)",
-            rotten_tomatoes_rating["rating"],
+        has_gemini_tomatometer = any(
+            rating["label"] == "Tomatometer" for rating in gemini_ratings
         )
+        if not has_gemini_tomatometer:
+            st.metric(
+                "Rotten Tomatoes Tomatometer (%)",
+                rotten_tomatoes_rating["rating"],
+            )
         st.link_button("View on Rotten Tomatoes", rotten_tomatoes_rating["url"])
 
     imdb_reviews = []
