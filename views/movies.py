@@ -63,16 +63,27 @@ def render_movie_reviews(
         gemini_movie_data.get("ratings", []) if gemini_movie_data else []
     )
     if gemini_movie_data:
+        other_gemini_ratings = [
+            rating
+            for rating in gemini_ratings
+            if not (
+                rating["source"] == "IMDb"
+                or (
+                    rating["source"] == "Rotten Tomatoes"
+                    and rating["label"] == "Tomatometer"
+                )
+            )
+        ]
         st.markdown("### Ratings and consensus from Gemini")
-        if gemini_ratings:
-            rating_columns = st.columns(min(len(gemini_ratings), 4))
-            for column, rating in zip(rating_columns, gemini_ratings):
+        if other_gemini_ratings:
+            rating_columns = st.columns(min(len(other_gemini_ratings), 4))
+            for column, rating in zip(rating_columns, other_gemini_ratings):
                 column.metric(
                     f"{rating['label']} ({rating['scale']})",
                     rating["rating"],
                 )
         else:
-            st.info("No clearly labeled ratings were found in the grounded results.")
+            st.info("No additional ratings were found in the grounded results.")
         with st.expander("Gemini summary and sources"):
             st.write(gemini_movie_data["answer"])
             for index, source in enumerate(
@@ -86,9 +97,16 @@ def render_movie_reviews(
                 )
 
     if not serpapi_enabled:
+        _render_primary_ratings(
+            None,
+            None,
+            gemini_ratings,
+            language_code,
+            client,
+        )
         st.info(
-            "IMDb and Rotten Tomatoes ratings, review excerpts, and YouTube "
-            "videos require SerpAPI when Gemini ratings are unavailable."
+            "IMDb and Rotten Tomatoes scores use Gemini when available. "
+            "Review excerpts and YouTube videos require SerpAPI."
         )
         return
 
@@ -106,21 +124,6 @@ def render_movie_reviews(
         print(f"IMDb rating search error: {e}")
         record_api_call("serpapi_imdb_rating", movie_title, "failure", 0)
         st.warning("IMDb movie details are temporarily unavailable.")
-
-    if imdb_rating:
-        has_gemini_imdb_rating = any(
-            rating["source"] == "IMDb" for rating in gemini_ratings
-        )
-        if imdb_rating.get("rating") and not has_gemini_imdb_rating:
-            st.metric("IMDb rating (out of 10)", imdb_rating["rating"])
-        for field, label in (
-            ("release_date", "Release Date"),
-            ("language", "Language"),
-            ("director", "Director"),
-            ("lead_cast", "Lead Cast"),
-        ):
-            if imdb_rating.get(field):
-                st.write(f"**{label}:** {imdb_rating[field]}")
 
     rotten_tomatoes_rating = None
     try:
@@ -147,16 +150,50 @@ def render_movie_reviews(
         )
         st.warning("The Rotten Tomatoes Tomatometer is temporarily unavailable.")
 
-    if rotten_tomatoes_rating:
-        has_gemini_tomatometer = any(
-            rating["label"] == "Tomatometer" for rating in gemini_ratings
-        )
-        if not has_gemini_tomatometer:
-            st.metric(
-                "Rotten Tomatoes Tomatometer (%)",
-                rotten_tomatoes_rating["rating"],
+    _render_primary_ratings(
+        imdb_rating,
+        rotten_tomatoes_rating,
+        gemini_ratings,
+        language_code,
+        client,
+    )
+
+    youtube_videos = []
+    try:
+        with st.spinner(f"🔎 Finding YouTube videos for '{movie_title}'..."):
+            youtube_videos = get_youtube_search_results(
+                f"{movie_title} movie",
+                serpapi_key,
+                top_k=results_count,
             )
+        record_api_call(
+            "serpapi_movie_youtube",
+            movie_title,
+            "success" if youtube_videos else "failure",
+            len(youtube_videos),
+        )
+    except Exception as e:
+        print(f"Movie YouTube search error: {e}")
+        record_api_call("serpapi_movie_youtube", movie_title, "failure", 0)
+        st.warning("YouTube movie videos are temporarily unavailable.")
+
+    if youtube_videos:
+        st.markdown("### YouTube videos")
+        for index, video in enumerate(youtube_videos, start=1):
+            st.markdown(f"**{video['title']}**")
+            st.link_button(f"Watch on YouTube ({index})", video["url"])
+
+    if rotten_tomatoes_rating:
         st.link_button("View on Rotten Tomatoes", rotten_tomatoes_rating["url"])
+    if imdb_rating:
+        for field, label in (
+            ("release_date", "Release Date"),
+            ("language", "Language"),
+            ("director", "Director"),
+            ("lead_cast", "Lead Cast"),
+        ):
+            if imdb_rating.get(field):
+                st.write(f"**{label}:** {imdb_rating[field]}")
 
     imdb_reviews = []
     try:
@@ -217,31 +254,6 @@ def render_movie_reviews(
         )
         _render_reviews(rotten_tomatoes_reviews, language_code, client)
 
-    youtube_videos = []
-    try:
-        with st.spinner(f"🔎 Finding YouTube videos for '{movie_title}'..."):
-            youtube_videos = get_youtube_search_results(
-                f"{movie_title} movie",
-                serpapi_key,
-                top_k=results_count,
-            )
-        record_api_call(
-            "serpapi_movie_youtube",
-            movie_title,
-            "success" if youtube_videos else "failure",
-            len(youtube_videos),
-        )
-    except Exception as e:
-        print(f"Movie YouTube search error: {e}")
-        record_api_call("serpapi_movie_youtube", movie_title, "failure", 0)
-        st.warning("YouTube movie videos are temporarily unavailable.")
-
-    if youtube_videos:
-        st.markdown("### YouTube videos")
-        for index, video in enumerate(youtube_videos, start=1):
-            st.markdown(f"**{video['title']}**")
-            st.link_button(f"Watch on YouTube ({index})", video["url"])
-
     if not reviews:
         st.info(
             f"No review excerpts were found for '{movie_title}'. "
@@ -295,3 +307,44 @@ def _render_reviews(reviews, language_code, client):
             )
         st.write(review_text)
         st.link_button(f"Read review on {review['source']}", review["url"])
+
+
+def _render_primary_ratings(
+    imdb_rating,
+    rotten_tomatoes_rating,
+    gemini_ratings,
+    language_code,
+    client,
+):
+    gemini_imdb_rating = next(
+        (
+            rating["rating"]
+            for rating in gemini_ratings
+            if rating["source"] == "IMDb"
+        ),
+        None,
+    )
+    gemini_tomatometer = next(
+        (
+            rating["rating"]
+            for rating in gemini_ratings
+            if rating["source"] == "Rotten Tomatoes"
+            and rating["label"] == "Tomatometer"
+        ),
+        None,
+    )
+    imdb_score = (imdb_rating or {}).get("rating")
+    if imdb_score is None:
+        imdb_score = gemini_imdb_rating
+    tomatometer_score = (rotten_tomatoes_rating or {}).get("rating")
+    if tomatometer_score is None:
+        tomatometer_score = gemini_tomatometer
+    scores = (
+        ("IMDb rating (out of 10)", imdb_score),
+        ("Rotten Tomatoes Tomatometer (%)", tomatometer_score),
+    )
+    columns = st.columns(len(scores))
+    for column, (label, score) in zip(columns, scores):
+        if language_code != "en":
+            label = translate_to_language(label, language_code, client)
+        column.metric(label, score if score is not None else "N/A")

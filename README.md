@@ -57,7 +57,9 @@
 ### 🎬 **Movie Ratings and Reviews**
 - Search grounded movie ratings and critical/audience consensus with Gemini
 - Fall back to IMDb and Rotten Tomatoes ratings through SerpAPI when Gemini is unavailable
-- Displays Rotten Tomatoes Tomatometer and Popcornmeter, IMDb, and BookMyShow scores when found
+- Always displays separate IMDb and Rotten Tomatoes rating fields, using Gemini scores when SerpAPI results are unavailable
+- Translates IMDb and Rotten Tomatoes rating labels to the selected language; YouTube videos appear immediately after the ratings
+- Displays Rotten Tomatoes Popcornmeter and BookMyShow scores when found
 - Optional SerpAPI adds rating lookup, IMDb and Rotten Tomatoes review excerpts, and YouTube videos
 
 ### 🎧 **Text-to-Speech (TTS)**
