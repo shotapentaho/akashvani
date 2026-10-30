@@ -80,7 +80,12 @@ def get_ai_search_result(query: str, client):
         return []
 
 
-def translate_to_language(text: str, target_lang_code: str, client) -> str:
+def translate_to_language(
+    text: str,
+    target_lang_code: str,
+    client,
+    fallback_to_source: bool = True,
+) -> str:
     """
     Translate text to target Indian language using OpenAI
     
@@ -89,6 +94,10 @@ def translate_to_language(text: str, target_lang_code: str, client) -> str:
         target_lang_code: Target language code (e.g., 'hi', 'ta', 'or')
         client: OpenAI client instance
     
+    Args:
+        fallback_to_source: Return the original text if translation fails.
+            Set to False when displaying content must not fall back to English.
+
     Returns:
         Translated text
     """
@@ -116,7 +125,9 @@ def translate_to_language(text: str, target_lang_code: str, client) -> str:
         return response.choices[0].message.content.strip()
     except Exception as e:
         st.error(f"❌ Translation Error: {e}")
-        return text
+        if fallback_to_source:
+            return text
+        raise
 
 
 def create_movie_review_script(
