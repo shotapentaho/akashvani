@@ -81,6 +81,7 @@ def render_movie_reviews(
             # )
             _render_gemini_rating_charts(
                 gemini_ratings,
+                movie_title,
                 language_code,
                 speech_speed,
                 voice_selection,
@@ -304,6 +305,7 @@ def _render_reviews(reviews, language_code, client):
 
 def _render_gemini_rating_charts(
     ratings,
+    movie_title,
     language_code,
     speech_speed,
     voice_selection,
@@ -395,7 +397,19 @@ def _render_gemini_rating_charts(
     else:
         columns[1].info("No Tomatometer or Popcornmeter ratings found.")
 
-    rating_summary = _build_rating_summary(ratings)
+    letterboxd_ratings = [
+        rating
+        for rating in ratings
+        if rating["source"] == "Letterboxd" and rating["scale"] == 5
+    ]
+    if letterboxd_ratings:
+        rating = letterboxd_ratings[0]
+        rating_text = rating.get("rating_text", f"{rating['rating']:g}")
+        st.markdown("#### Letterboxd")
+        st.metric("User rating", _format_letterboxd_stars(rating["rating"]))
+        st.caption(f"{rating_text} out of 5 stars")
+
+    rating_summary = _build_rating_summary(ratings, movie_title)
     if rating_summary:
         spoken_summary = rating_summary
         if language_code != "en":
@@ -417,8 +431,17 @@ def _render_gemini_rating_charts(
             st.info(f"Voice narration is not available for {language_code}.")
 
 
-def _build_rating_summary(ratings):
-    """Create a concise spoken summary for the four primary rating sources."""
+def _format_letterboxd_stars(rating):
+    """Render a five-star Letterboxd score, supporting half-star values."""
+    rounded_rating = max(0, min(5, round(float(rating) * 2) / 2))
+    full_stars = int(rounded_rating)
+    half_star = rounded_rating % 1 == 0.5
+    empty_stars = 5 - full_stars - int(half_star)
+    return "★" * full_stars + ("⯨" if half_star else "") + "☆" * empty_stars
+
+
+def _build_rating_summary(ratings, movie_title):
+    """Create a concise spoken summary of the displayed movie ratings."""
     summary_parts = []
     for rating in ratings:
         if rating["source"] == "IMDb" and rating["scale"] == 10:
@@ -435,9 +458,18 @@ def _build_rating_summary(ratings):
             summary_parts.append(
                 f"{rating['label']} is {rating['rating']:g} out of 100"
             )
+        elif rating["source"] == "Letterboxd" and rating["scale"] == 5:
+            rating_text = rating.get("rating_text", f"{rating['rating']:g}")
+            summary_parts.append(
+                f"Letterboxd is rated around {rating_text} out of 5 stars"
+            )
     if not summary_parts:
         return ""
-    return "Here are the movie ratings: " + ". ".join(summary_parts) + "."
+    return (
+        f"Ratings for {movie_title}: "
+        + ". ".join(summary_parts)
+        + "."
+    )
 
 
 def _render_primary_ratings(

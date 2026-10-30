@@ -146,6 +146,29 @@ class MovieFetcherTests(unittest.TestCase):
             }],
         )
 
+    def test_parse_gemini_movie_ratings_preserves_decimal_scores(self):
+        from utils.movie_fetcher import _parse_gemini_movie_ratings
+
+        self.assertEqual(
+            _parse_gemini_movie_ratings(
+                "IMDb Rating: 7.7 / 10. BookMyShow Rating: 8.7 / 10."
+            ),
+            [
+                {
+                    "source": "IMDb",
+                    "label": "IMDb rating",
+                    "rating": 7.7,
+                    "scale": 10,
+                },
+                {
+                    "source": "BookMyShow",
+                    "label": "BookMyShow user rating",
+                    "rating": 8.7,
+                    "scale": 10,
+                },
+            ],
+        )
+
     def test_parse_gemini_movie_ratings_supports_score_before_source(self):
         response_text = (
             "The audience score is 8.4 out of 10 on BookMyShow. "

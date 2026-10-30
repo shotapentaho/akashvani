@@ -241,7 +241,7 @@ def _extract_imdb_rating_from_text(text: str) -> Optional[float]:
     if not text:
         return None
 
-    number = r"(\d{1,2}(?:\.\d+)?)"
+    number = r"(\d{1,2}(?:\.\d+)?)(?!\d|\.\d)"
     patterns = (
         rf"\b(?:IMDb|IMDB)\b[^.\n]{{0,50}}?"
         rf"(?:rating|score)?\s*[:\-]?\s*{number}"
@@ -260,7 +260,7 @@ def _extract_imdb_rating_from_text(text: str) -> Optional[float]:
 
 
 def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float]:
-    rating = r"(\d{1,3}(?:\.\d+)?)"
+    rating = r"(\d{1,3}(?:\.\d+)?)(?!\d|\.\d)"
     patterns = (
         rf"{rating}\s*%?\s*{label}",
         rf"{label}[^0-9]{{0,30}}{rating}\s*%?(?:\s*(?:out of|/)\s*{scale})?",
@@ -275,7 +275,7 @@ def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float
 
 
 def _extract_out_of_ten_rating(text: str, source: str) -> Optional[float]:
-    rating = r"(\d(?:\.\d+)?)"
+    rating = r"(\d(?:\.\d+)?)(?!\d|\.\d)"
     scale = r"(?:out\s+of\s+10|/\s*10)"
     patterns = (
         rf"\b{source}\b[^.\n]{{0,100}}?"
@@ -293,7 +293,7 @@ def _extract_out_of_ten_rating(text: str, source: str) -> Optional[float]:
 
 def _extract_letterboxd_rating(answer: str) -> Optional[Dict[str, object]]:
     """Extract a Letterboxd score, including an explicitly stated range."""
-    number = r"(\d(?:\.\d+)?)"
+    number = r"(\d(?:\.\d+)?)(?!\d|\.\d)"
     range_pattern = re.compile(
         rf"\bLetterboxd\b[^.\n]{{0,100}}?{number}\s*"
         rf"(?:to|-|–|—)\s*{number}\s*(?:out\s+of\s+5|/\s*5)\b",
