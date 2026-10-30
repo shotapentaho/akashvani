@@ -87,8 +87,8 @@ def render_movie_reviews(
 
     if not serpapi_enabled:
         st.info(
-            "IMDb/Rotten Tomatoes review excerpts and YouTube videos require "
-            "SerpAPI."
+            "IMDb and Rotten Tomatoes ratings, review excerpts, and YouTube "
+            "videos require SerpAPI when Gemini ratings are unavailable."
         )
         return
 
