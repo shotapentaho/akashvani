@@ -172,6 +172,19 @@ class MovieFetcherTests(unittest.TestCase):
             ],
         )
 
+    def test_parse_gemini_movie_ratings_supports_bare_imdb_label(self):
+        from utils.movie_fetcher import _parse_gemini_movie_ratings
+
+        self.assertEqual(
+            _parse_gemini_movie_ratings("IMDb 8.1. BookMyShow rating unavailable."),
+            [{
+                "source": "IMDb",
+                "label": "IMDb rating",
+                "rating": 8.1,
+                "scale": 10,
+            }],
+        )
+
     @patch("utils.movie_fetcher.requests.get")
     def test_get_imdb_reviews_filters_search_results(self, get):
         response = Mock()
@@ -350,6 +363,55 @@ class MovieFetcherTests(unittest.TestCase):
             get_imdb_rating("Dune", "api-key"),
             {
                 "rating": 8.1,
+                "url": "https://www.imdb.com/title/tt1160419/",
+            },
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_imdb_rating_parses_common_labeled_snippet_formats(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "organic_results": [
+                {
+                    "title": "Dune (2021) - IMDb",
+                    "link": "https://www.imdb.com/title/tt1160419/",
+                    "snippet": "IMDb 8.1",
+                },
+            ],
+        }
+        get.return_value = response
+
+        self.assertEqual(
+            get_imdb_rating("Dune", "api-key"),
+            {
+                "rating": 8.1,
+                "url": "https://www.imdb.com/title/tt1160419/",
+            },
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_imdb_rating_continues_after_unrated_title_result(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "organic_results": [
+                {
+                    "title": "Dune (2021) - IMDb",
+                    "link": "https://www.imdb.com/title/tt1160419/",
+                    "snippet": "Cast and crew information.",
+                },
+                {
+                    "title": "Dune (2021) | IMDb",
+                    "link": "https://www.imdb.com/title/tt1160419/",
+                    "snippet": "Rating: 8.0/10.",
+                },
+            ],
+        }
+        get.return_value = response
+
+        self.assertEqual(
+            get_imdb_rating("Dune", "api-key"),
+            {
+                "rating": 8.0,
                 "url": "https://www.imdb.com/title/tt1160419/",
             },
         )
