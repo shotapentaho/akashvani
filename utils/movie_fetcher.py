@@ -178,6 +178,14 @@ def _extract_imdb_rating(value) -> Optional[float]:
             if rating is not None:
                 return rating
         return None
+    if isinstance(value, str):
+        match = re.search(
+            r"\b(\d(?:\.\d+)?)\s*(?:/10|out of 10)\b",
+            value,
+            re.IGNORECASE,
+        )
+        if match:
+            return float(match.group(1))
     try:
         rating = float(value)
     except (TypeError, ValueError):
@@ -372,6 +380,28 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         ),
         None,
     )
+    structured_sections = (
+        ("knowledge_graph", knowledge_graph),
+        ("answer_box", payload.get("answer_box") or {}),
+        ("movie_results", payload.get("movie_results") or {}),
+    )
+    structured_rating = next(
+        (
+            _extract_imdb_rating(section.get(key))
+            for _, section in structured_sections
+            if isinstance(section, dict)
+            for key in (
+                "rating",
+                "ratingValue",
+                "rating_value",
+                "aggregateRating",
+                "score",
+            )
+            if section.get(key) is not None
+        ),
+        None,
+    )
+    graph_rating = graph_rating if graph_rating is not None else structured_rating
 
     for result in payload.get("organic_results") or []:
         url = result.get("link") or result.get("url", "")
@@ -385,7 +415,7 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
                 result.get("title", ""),
                 result.get("snippet", ""),
                 " ".join(
-                    str(value)
+                    _display_text(value)
                     for value in rich_snippet.values()
                 ),
             )
@@ -459,7 +489,22 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
             details["lead_cast"] = details["actors"]
         if details.get("rating") is not None or len(details) > 1:
             return details
-    return {"rating": graph_rating} if graph_rating is not None else None
+    if graph_rating is not None:
+        result_url = next(
+            (
+                section.get("link") or section.get("url")
+                for _, section in structured_sections
+                if isinstance(section, dict)
+                for key in ("link", "url")
+                if (section.get("link") or section.get("url"))
+            ),
+            None,
+        )
+        return {
+            "rating": graph_rating,
+            **({"url": result_url} if result_url else {}),
+        }
+    return None
 
 
 def get_rotten_tomatoes_rating(
@@ -482,6 +527,27 @@ def get_rotten_tomatoes_rating(
         re.IGNORECASE,
     )
 
+    structured_sections = (
+        payload.get("answer_box") or {},
+        payload.get("knowledge_graph") or {},
+        payload.get("movie_results") or {},
+    )
+    for section in structured_sections:
+        if not isinstance(section, dict):
+            continue
+        for key in ("tomatometer", "tomatometer_score", "rating", "score"):
+            score = _extract_labeled_rating(
+                f"Tomatometer {section.get(key)}",
+                r"Tomatometer",
+                100,
+            )
+            if score is not None:
+                url = section.get("link") or section.get("url")
+                return {
+                    "rating": score,
+                    **({"url": url} if url else {}),
+                }
+
     for result in payload.get("organic_results") or []:
         url = result.get("link") or result.get("url", "")
         if (
@@ -496,7 +562,7 @@ def get_rotten_tomatoes_rating(
                 result.get("title", ""),
                 result.get("snippet", ""),
                 " ".join(
-                    str(value)
+                    _display_text(value)
                     for value in (result.get("rich_snippet") or {}).values()
                 ),
             )

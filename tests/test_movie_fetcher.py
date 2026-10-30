@@ -204,6 +204,27 @@ class MovieFetcherTests(unittest.TestCase):
         )
 
     @patch("utils.movie_fetcher.requests.get")
+    def test_get_imdb_rating_from_serpapi_answer_box(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "answer_box": {
+                "title": "Dune (2021)",
+                "rating": "8.0/10",
+                "link": "https://www.imdb.com/title/tt1160419/",
+            },
+            "organic_results": [],
+        }
+        get.return_value = response
+
+        self.assertEqual(
+            get_imdb_rating("Dune", "api-key"),
+            {
+                "rating": 8.0,
+                "url": "https://www.imdb.com/title/tt1160419/",
+            },
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
     def test_get_imdb_rating_from_structured_knowledge_graph(self, get):
         response = Mock()
         response.json.return_value = {
@@ -319,6 +340,27 @@ class MovieFetcherTests(unittest.TestCase):
                     "snippet": "Tomatometer score: 83",
                 },
             ],
+        }
+        get.return_value = response
+
+        self.assertEqual(
+            get_rotten_tomatoes_rating("Dune", "api-key"),
+            {
+                "rating": 83.0,
+                "url": "https://www.rottentomatoes.com/m/dune",
+            },
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_rotten_tomatoes_rating_from_serpapi_answer_box(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "answer_box": {
+                "title": "Dune | Rotten Tomatoes",
+                "tomatometer": "83%",
+                "link": "https://www.rottentomatoes.com/m/dune",
+            },
+            "organic_results": [],
         }
         get.return_value = response
 
