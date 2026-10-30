@@ -348,6 +348,15 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         r"\b(?:languages?|original language)\s*[:\-]?\s*([^|.;\n]+)",
         re.IGNORECASE,
     )
+    knowledge_graph = payload.get("knowledge_graph") or {}
+    graph_rating = next(
+        (
+            _extract_imdb_rating(knowledge_graph[key])
+            for key in ("rating", "ratingValue", "aggregateRating")
+            if knowledge_graph.get(key) is not None
+        ),
+        None,
+    )
 
     for result in payload.get("organic_results") or []:
         url = result.get("link") or result.get("url", "")
@@ -368,20 +377,11 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
             if part
         )
         rating_match = rating_pattern.search(text)
-        knowledge_graph = payload.get("knowledge_graph") or {}
         details = {"url": url}
         if rating_match:
             details["rating"] = float(rating_match.group(1))
         else:
             labeled_rating_match = labeled_rating_pattern.search(text)
-            graph_rating = next(
-                (
-                    _extract_imdb_rating(knowledge_graph[key])
-                    for key in ("rating", "ratingValue", "aggregateRating")
-                    if knowledge_graph.get(key) is not None
-                ),
-                None,
-            )
             rating = (
                 float(labeled_rating_match.group(1))
                 if labeled_rating_match
@@ -442,7 +442,7 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
             details["lead_cast"] = details["actors"]
         if len(details) > 1:
             return details
-    return None
+    return {"rating": graph_rating} if graph_rating is not None else None
 
 
 def get_rotten_tomatoes_rating(

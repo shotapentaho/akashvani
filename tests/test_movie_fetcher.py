@@ -234,6 +234,22 @@ class MovieFetcherTests(unittest.TestCase):
         )
 
     @patch("utils.movie_fetcher.requests.get")
+    def test_get_imdb_rating_from_knowledge_graph_without_organic_result(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "knowledge_graph": {
+                "aggregateRating": {
+                    "ratingValue": "8.2",
+                    "ratingCount": "12345",
+                }
+            },
+            "organic_results": [],
+        }
+        get.return_value = response
+
+        self.assertEqual(get_imdb_rating("Dune", "api-key"), {"rating": 8.2})
+
+    @patch("utils.movie_fetcher.requests.get")
     def test_get_rotten_tomatoes_rating_from_movie_result(self, get):
         response = Mock()
         response.json.return_value = {
