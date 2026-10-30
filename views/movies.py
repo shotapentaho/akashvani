@@ -18,11 +18,6 @@ from utils.tts_handler import is_tts_available, text_to_speech
 from utils.web_search_fetcher import get_youtube_search_results
 
 
-def _rerun_active_search():
-    """Re-render the active search after a Streamlit button interaction."""
-    st.session_state.last_search_fingerprint = None
-
-
 def render_movie_reviews(
     query,
     language_code,
@@ -401,11 +396,7 @@ def _render_gemini_rating_charts(
         columns[1].info("No Tomatometer or Popcornmeter ratings found.")
 
     rating_summary = _build_rating_summary(ratings)
-    if rating_summary and st.button(
-        "🔊 Listen to ratings",
-        key="movie_ratings_speech",
-        on_click=_rerun_active_search,
-    ):
+    if rating_summary:
         spoken_summary = rating_summary
         if language_code != "en":
             spoken_summary = translate_to_language(
