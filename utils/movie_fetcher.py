@@ -40,16 +40,24 @@ def _is_domain(url: str, domain: str) -> bool:
 
 
 def is_movie_review_query(query: str) -> bool:
-    """Return whether a query asks for a movie review."""
+    """Return whether a query asks for a movie review or rating."""
     normalized = re.sub(r"\s+", " ", query or "").strip()
-    has_review = re.search(r"\breviews?\b", normalized, re.IGNORECASE)
-    if not has_review:
+    has_review_or_rating = re.search(
+        r"\b(?:reviews?|ratings?)\b",
+        normalized,
+        re.IGNORECASE,
+    )
+    if not has_review_or_rating:
         return False
     has_movie = re.search(r"\b(?:movie|film)\b", normalized, re.IGNORECASE)
     return bool(
         has_movie
-        or re.search(r"\breviews?\s*$", normalized, re.IGNORECASE)
-        or re.search(r"^\s*reviews?\s+(?:of|for)\b", normalized, re.IGNORECASE)
+        or re.search(r"\b(?:reviews?|ratings?)\s*$", normalized, re.IGNORECASE)
+        or re.search(
+            r"^\s*(?:reviews?|ratings?)\s+(?:(?:of|for|about)\s+)?\S",
+            normalized,
+            re.IGNORECASE,
+        )
     )
 
 
@@ -86,7 +94,7 @@ def extract_movie_title(query: str) -> str:
         flags=re.IGNORECASE,
     )
     title = re.sub(
-        r"^(?:reviews?|review|ratings?|rating)\s+(?:of|for)\s+"
+        r"^(?:reviews?|ratings?)\s+(?:(?:of|for|about)\s+)?"
         r"(?:(?:the\s+)?(?:movie|film)\s+)?",
         "",
         title,
