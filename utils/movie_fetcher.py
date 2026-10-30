@@ -236,9 +236,10 @@ def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float
 
 def _extract_out_of_ten_rating(text: str, source: str) -> Optional[float]:
     rating = r"(\d(?:\.\d+)?)"
+    scale = r"(?:out\s+of\s+10|/\s*10)"
     patterns = (
-        rf"\b{source}\b[^.\n]{{0,100}}?{rating}\s*(?:out of 10|/10)\b",
-        rf"{rating}\s*(?:out of 10|/10)\s*[^.\n]{{0,60}}\b{source}\b",
+        rf"\b{source}\b[^.\n]{{0,100}}?{rating}\s*{scale}\b",
+        rf"{rating}\s*{scale}\s*[^.\n]{{0,60}}\b{source}\b",
         rf"\b{source}\b[^.\n]{{0,40}}?(?:rating|score)?\s*[:\-]?\s*{rating}\b",
     )
     for pattern in patterns:
@@ -248,6 +249,36 @@ def _extract_out_of_ten_rating(text: str, source: str) -> Optional[float]:
             if 0 <= score <= 10:
                 return score
     return None
+
+
+def _extract_letterboxd_rating(answer: str) -> Optional[Dict[str, object]]:
+    """Extract a Letterboxd score, including an explicitly stated range."""
+    number = r"(\d(?:\.\d+)?)"
+    range_pattern = re.compile(
+        rf"\bLetterboxd\b[^.\n]{{0,100}}?{number}\s*"
+        rf"(?:to|-|–|—)\s*{number}\s*(?:out\s+of\s+5|/\s*5)\b",
+        re.IGNORECASE,
+    )
+    single_pattern = re.compile(
+        rf"\bLetterboxd\b[^.\n]{{0,100}}?{number}\s*(?:out\s+of\s+5|/\s*5)\b",
+        re.IGNORECASE,
+    )
+    match = range_pattern.search(answer) or single_pattern.search(answer)
+    if not match:
+        return None
+
+    values = [float(value) for value in match.groups() if value is not None]
+    if not values or any(value < 0 or value > 5 for value in values):
+        return None
+    result = {
+        "source": "Letterboxd",
+        "label": "Letterboxd user rating",
+        "rating": values[0],
+        "scale": 5,
+    }
+    if len(values) == 2:
+        result["rating_text"] = f"{values[0]:g}-{values[1]:g}"
+    return result
 
 
 def _parse_gemini_movie_ratings(answer: str) -> List[Dict[str, object]]:
@@ -293,6 +324,9 @@ def _parse_gemini_movie_ratings(answer: str) -> List[Dict[str, object]]:
                     "scale": scale,
                 }
             )
+    letterboxd_rating = _extract_letterboxd_rating(answer)
+    if letterboxd_rating:
+        ratings.append(letterboxd_rating)
     return ratings
 
 

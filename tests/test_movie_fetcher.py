@@ -53,9 +53,11 @@ class MovieFetcherTests(unittest.TestCase):
     def test_parse_gemini_movie_ratings_from_grounded_answer(self):
         response_text = (
             "Drishyam: The Conclusion holds the following ratings. "
-            "Rotten Tomatoes: 100% Tomatometer (from 17 critic reviews) "
-            "and a 90% Popcornmeter score. IMDb: 7.7 out of 10 average "
-            "rating. BookMyShow: 8.9 out of 10 user rating."
+            "IMDb Rating: 7.7 / 10 (based on user ratings). "
+            "BookMyShow Rating: 8.7 / 10 (with over 155,000 votes). "
+            "Rotten Tomatoes: 94% Tomatometer (by critics) and 90% "
+            "Popcornmeter (by verified audience scores). Letterboxd: "
+            "user distribution peaking around 3.5 to 4 out of 5 stars."
         )
         response = Mock()
         response.json.return_value = {
@@ -89,7 +91,7 @@ class MovieFetcherTests(unittest.TestCase):
                 {
                     "source": "Rotten Tomatoes",
                     "label": "Tomatometer",
-                    "rating": 100.0,
+                    "rating": 94.0,
                     "scale": 100,
                 },
                 {
@@ -107,8 +109,15 @@ class MovieFetcherTests(unittest.TestCase):
                 {
                     "source": "BookMyShow",
                     "label": "BookMyShow user rating",
-                    "rating": 8.9,
+                    "rating": 8.7,
                     "scale": 10,
+                },
+                {
+                    "source": "Letterboxd",
+                    "label": "Letterboxd user rating",
+                    "rating": 3.5,
+                    "scale": 5,
+                    "rating_text": "3.5-4",
                 },
             ],
         )

@@ -80,7 +80,7 @@ def render_movie_reviews(
             for column, rating in zip(rating_columns, other_gemini_ratings):
                 column.metric(
                     f"{rating['label']} ({rating['scale']})",
-                    rating["rating"],
+                    rating.get("rating_text", rating["rating"]),
                 )
         else:
             st.info("No additional ratings were found in the grounded results.")
