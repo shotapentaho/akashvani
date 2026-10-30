@@ -18,6 +18,15 @@ from utils.tts_handler import is_tts_available, text_to_speech
 from utils.web_search_fetcher import get_youtube_search_results
 
 
+def _cached_movie_rating(movie_title, source, loader):
+    """Reuse one rating snapshot for a movie during the current session."""
+    cache = st.session_state.setdefault("movie_rating_cache", {})
+    cache_key = (movie_title.casefold(), source)
+    if cache_key not in cache:
+        cache[cache_key] = loader()
+    return cache[cache_key]
+
+
 def render_movie_reviews(
     query,
     language_code,
@@ -33,7 +42,7 @@ def render_movie_reviews(
 ):
     st.session_state.api_calls_today += 1
     st.markdown("---")
-    st.markdown("## 🎬 Movie Reviews")
+    st.markdown("## 🎬 Movie Ratings")
 
     movie_title = extract_movie_title(query)
     if not movie_title:
@@ -46,9 +55,13 @@ def render_movie_reviews(
             with st.spinner(
                 f"🔎 Finding grounded ratings and consensus for '{movie_title}'..."
             ):
-                gemini_movie_data = get_gemini_movie_ratings(
+                gemini_movie_data = _cached_movie_rating(
                     movie_title,
-                    gemini_api_key,
+                    "gemini",
+                    lambda: get_gemini_movie_ratings(
+                        movie_title,
+                        gemini_api_key,
+                    ),
                 )
             record_api_call(
                 "gemini_movie_ratings",
@@ -107,7 +120,11 @@ def render_movie_reviews(
     imdb_rating = None
     try:
         with st.spinner(f"🔎 Finding IMDb rating and movie details for '{movie_title}'..."):
-            imdb_rating = get_imdb_rating(movie_title, serpapi_key)
+            imdb_rating = _cached_movie_rating(
+                movie_title,
+                "imdb",
+                lambda: get_imdb_rating(movie_title, serpapi_key),
+            )
         record_api_call(
             "serpapi_imdb_rating",
             movie_title,
@@ -124,9 +141,13 @@ def render_movie_reviews(
         with st.spinner(
             f"🔎 Finding Rotten Tomatoes Tomatometer for '{movie_title}'..."
         ):
-            rotten_tomatoes_rating = get_rotten_tomatoes_rating(
+            rotten_tomatoes_rating = _cached_movie_rating(
                 movie_title,
-                serpapi_key,
+                "rotten_tomatoes",
+                lambda: get_rotten_tomatoes_rating(
+                    movie_title,
+                    serpapi_key,
+                ),
             )
         record_api_call(
             "serpapi_rotten_tomatoes_rating",
@@ -496,12 +517,12 @@ def _render_primary_ratings(
         ),
         None,
     )
-    imdb_score = (imdb_rating or {}).get("rating")
+    imdb_score = gemini_imdb_rating
     if imdb_score is None:
-        imdb_score = gemini_imdb_rating
-    tomatometer_score = (rotten_tomatoes_rating or {}).get("rating")
+        imdb_score = (imdb_rating or {}).get("rating")
+    tomatometer_score = gemini_tomatometer
     if tomatometer_score is None:
-        tomatometer_score = gemini_tomatometer
+        tomatometer_score = (rotten_tomatoes_rating or {}).get("rating")
     scores = (
         ("IMDb rating (out of 10)", imdb_score),
         ("Rotten Tomatoes Tomatometer (%)", tomatometer_score),

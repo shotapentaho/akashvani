@@ -394,7 +394,12 @@ def get_gemini_movie_ratings(
         json={
             "contents": [{"parts": [{"text": prompt}]}],
             "tools": [{"google_search": {}}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1200},
+            "generationConfig": {
+                "temperature": 0,
+                "topP": 0,
+                "topK": 1,
+                "maxOutputTokens": 1200,
+            },
         },
         timeout=20,
     )

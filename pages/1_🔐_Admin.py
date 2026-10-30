@@ -86,11 +86,11 @@ tab_labels = [
     "📊 Analytics Dashboard",
     "📈 Charts",
     "🔍 System Diagnostics",
+    "🧪 Test Suite",
 ]
 
 tabs = st.tabs(tab_labels)
-tab1, tab2 = tabs[:2]
-tab3 = tabs[2]
+tab1, tab2, tab3, tab4 = tabs
 
 # ===== TAB 1: DASHBOARD =====
 with tab1:
@@ -124,6 +124,17 @@ with tab3:
         show_diagnostics()
     except Exception as e:
         st.error(f"❌ Failed to load diagnostics module: {e}")
+        import traceback
+        with st.expander("🔍 Error Details"):
+            st.code(traceback.format_exc())
+
+# ===== TAB 4: TEST SUITE =====
+with tab4:
+    try:
+        from pages.admin.tests import show_tests
+        show_tests()
+    except Exception as e:
+        st.error(f"❌ Failed to load test suite module: {e}")
         import traceback
         with st.expander("🔍 Error Details"):
             st.code(traceback.format_exc())
