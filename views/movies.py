@@ -63,38 +63,22 @@ def render_movie_reviews(
         gemini_movie_data.get("ratings", []) if gemini_movie_data else []
     )
     if gemini_movie_data:
-        other_gemini_ratings = [
-            rating
-            for rating in gemini_ratings
-            if not (
-                rating["source"] == "IMDb"
-                or (
-                    rating["source"] == "Rotten Tomatoes"
-                    and rating["label"] == "Tomatometer"
-                )
+        st.markdown("### Ratings from Gemini")
+        if gemini_ratings:
+            st.table(
+                [
+                    {
+                        "Rating type": f"{rating['label']} ({rating['scale']})",
+                        "Rating": rating.get(
+                            "rating_text",
+                            f"{rating['rating']:g}",
+                        ),
+                    }
+                    for rating in gemini_ratings
+                ]
             )
-        ]
-        st.markdown("### Ratings and consensus from Gemini")
-        if other_gemini_ratings:
-            rating_columns = st.columns(min(len(other_gemini_ratings), 4))
-            for column, rating in zip(rating_columns, other_gemini_ratings):
-                column.metric(
-                    f"{rating['label']} ({rating['scale']})",
-                    rating.get("rating_text", rating["rating"]),
-                )
         else:
-            st.info("No additional ratings were found in the grounded results.")
-        with st.expander("Gemini summary and sources"):
-            st.write(gemini_movie_data["answer"])
-            for index, source in enumerate(
-                gemini_movie_data.get("sources", []),
-                start=1,
-            ):
-                st.link_button(
-                    source["title"],
-                    source["url"],
-                    key=f"gemini_movie_source_{index}",
-                )
+            st.info("No ratings were found in the grounded results.")
 
     if not serpapi_enabled:
         _render_primary_ratings(

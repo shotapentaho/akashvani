@@ -334,17 +334,17 @@ def get_gemini_movie_ratings(
     movie_title: str,
     api_key: str,
 ) -> Optional[Dict[str, object]]:
-    """Find grounded movie ratings and consensus using Gemini Google Search."""
+    """Find grounded movie ratings using Gemini Google Search."""
     if not movie_title or not api_key:
         return None
 
     prompt = (
-        f"Search the web for current ratings and critical/audience consensus for "
-        f"the movie {movie_title!r}. Report only ratings you can verify from "
+        f"Search the web for current ratings for the movie {movie_title!r}. "
+        "Report only ratings you can verify from "
         "the search results. Include Rotten Tomatoes Tomatometer and "
         "Popcornmeter percentages when available, IMDb and BookMyShow scores "
-        "out of 10 when available, and review or vote counts. Clearly label "
-        "each source and distinguish ratings from different films or editions. "
+        "out of 10 when available, and clearly label each source. Distinguish "
+        "ratings from different films or editions. "
         "Do not guess or fill in missing ratings."
     )
     response = requests.post(
