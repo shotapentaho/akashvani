@@ -10,6 +10,13 @@ from utils.web_search_fetcher import GEMINI_ENDPOINT
 
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
+GEMINI_MOVIE_RATING_ATTEMPTS = 3
+REQUIRED_GEMINI_RATING_LABELS = {
+    ("IMDb", "IMDb rating"),
+    ("BookMyShow", "BookMyShow user rating"),
+    ("Rotten Tomatoes", "Tomatometer"),
+    ("Rotten Tomatoes", "Popcornmeter"),
+}
 
 
 def _google_search(query: str, api_key: str, num: int = 10) -> Dict:
@@ -371,76 +378,103 @@ def _parse_gemini_movie_ratings(answer: str) -> List[Dict[str, object]]:
     return ratings
 
 
+def _has_required_gemini_ratings(ratings: List[Dict[str, object]]) -> bool:
+    """Return whether all four ratings shown by the movie UI are present."""
+    return REQUIRED_GEMINI_RATING_LABELS.issubset(
+        {(item.get("source"), item.get("label")) for item in ratings}
+    )
+
+
 def get_gemini_movie_ratings(
     movie_title: str,
     api_key: str,
 ) -> Optional[Dict[str, object]]:
-    """Find grounded movie ratings using Gemini Google Search."""
+    """Find all required grounded movie ratings using Gemini Google Search."""
     if not movie_title or not api_key:
         return None
 
-    prompt = (
-        f"Search the web for current ratings for the movie {movie_title!r}. "
-        "Report only ratings you can verify from "
-        "the search results. Include Rotten Tomatoes Tomatometer and "
-        "Popcornmeter percentages when available, IMDb and BookMyShow scores "
-        "out of 10 when available, and clearly label each source. Distinguish "
-        "ratings from different films or editions. "
-        "Do not guess or fill in missing ratings."
+    prompts = (
+        (
+            f"Search the web for current ratings for the movie {movie_title!r}. "
+            "Return exactly these four labeled ratings if verified: IMDb rating "
+            "(out of 10), BookMyShow user rating (out of 10), Rotten Tomatoes "
+            "Tomatometer (percent), and Rotten Tomatoes Popcornmeter (percent). "
+            "Use Google Search grounding, distinguish this movie from similarly "
+            "named films, and do not guess or fill in missing ratings."
+        ),
+        (
+            f"Recheck the web sources for {movie_title!r}. Find all four scores: "
+            "IMDb, BookMyShow, Rotten Tomatoes Tomatometer, and Rotten Tomatoes "
+            "Popcornmeter. Write each on its own line with the numeric value and "
+            "scale. Do not return a partial answer or invent unavailable values."
+        ),
+        (
+            f"Verify ratings for the exact movie {movie_title!r} using grounded "
+            "search. I need IMDb /10, BookMyShow /10, RT Tomatometer %, and RT "
+            "Popcornmeter %. Clearly label every score; omit the answer entirely "
+            "if a score cannot be verified."
+        ),
     )
-    response = requests.post(
-        GEMINI_ENDPOINT,
-        params={"key": api_key},
-        json={
-            "contents": [{"parts": [{"text": prompt}]}],
-            "tools": [{"google_search": {}}],
-            "generationConfig": {
-                "temperature": 0,
-                "topP": 0,
-                "topK": 1,
-                "maxOutputTokens": 1200,
-            },
-        },
-        timeout=20,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    candidates = payload.get("candidates") or []
-    if not candidates:
-        return None
 
-    candidate = candidates[0]
-    parts = (candidate.get("content") or {}).get("parts") or []
-    answer = " ".join(
-        part.get("text", "").strip()
-        for part in parts
-        if isinstance(part, dict) and part.get("text")
-    ).strip()
-    if not answer:
-        return None
-
-    sources = []
-    seen_urls = set()
-    metadata = candidate.get("groundingMetadata") or {}
-    for chunk in metadata.get("groundingChunks") or []:
-        web = chunk.get("web") if isinstance(chunk, dict) else None
-        if not isinstance(web, dict):
-            continue
-        url = web.get("uri", "")
-        if url and url not in seen_urls:
-            seen_urls.add(url)
-            sources.append(
-                {
-                    "title": web.get("title") or "Google Search source",
-                    "url": url,
-                }
+    last_error = None
+    for attempt in range(GEMINI_MOVIE_RATING_ATTEMPTS):
+        try:
+            response = requests.post(
+                GEMINI_ENDPOINT,
+                params={"key": api_key},
+                json={
+                    "contents": [{"parts": [{"text": prompts[attempt]}]}],
+                    "tools": [{"google_search": {}}],
+                    "generationConfig": {
+                        "temperature": 0,
+                        "topP": 0,
+                        "topK": 1,
+                        "maxOutputTokens": 1200,
+                    },
+                },
+                timeout=20,
             )
+            response.raise_for_status()
+            payload = response.json()
+        except (requests.RequestException, ValueError) as error:
+            last_error = error
+            continue
+        for candidate in payload.get("candidates") or []:
+            parts = (candidate.get("content") or {}).get("parts") or []
+            answer = " ".join(
+                part.get("text", "").strip()
+                for part in parts
+                if isinstance(part, dict) and part.get("text")
+            ).strip()
+            ratings = _parse_gemini_movie_ratings(answer)
+            if not answer or not _has_required_gemini_ratings(ratings):
+                continue
 
-    return {
-        "answer": answer,
-        "ratings": _parse_gemini_movie_ratings(answer),
-        "sources": sources,
-    }
+            sources = []
+            seen_urls = set()
+            metadata = candidate.get("groundingMetadata") or {}
+            for chunk in metadata.get("groundingChunks") or []:
+                web = chunk.get("web") if isinstance(chunk, dict) else None
+                if not isinstance(web, dict):
+                    continue
+                url = web.get("uri", "")
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    sources.append(
+                        {
+                            "title": web.get("title") or "Google Search source",
+                            "url": url,
+                        }
+                    )
+
+            return {
+                "answer": answer,
+                "ratings": ratings,
+                "sources": sources,
+            }
+    if last_error is not None:
+        raise last_error
+    return None
 
 
 def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object]]:

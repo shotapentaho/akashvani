@@ -208,6 +208,58 @@ class MovieFetcherTests(unittest.TestCase):
             }],
         )
 
+    def test_get_gemini_movie_ratings_retries_until_all_required_scores_exist(self):
+        incomplete = Mock()
+        incomplete.json.return_value = {
+            "candidates": [{
+                "content": {
+                    "parts": [{"text": "IMDb rating: 7.7 / 10"}],
+                },
+            }],
+        }
+        complete = Mock()
+        complete.json.return_value = {
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "text": (
+                            "IMDb: 7.7/10. BookMyShow: 8.7/10. "
+                            "Tomatometer: 94%. Popcornmeter: 90%."
+                        ),
+                    }],
+                },
+            }],
+        }
+
+        with patch(
+            "utils.movie_fetcher.requests.post",
+            side_effect=[incomplete, complete],
+        ) as post:
+            result = get_gemini_movie_ratings("Drishyam: The Conclusion", "key")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result["ratings"]), 4)
+        self.assertEqual(post.call_count, 2)
+
+    def test_get_gemini_movie_ratings_does_not_return_partial_scores(self):
+        response = Mock()
+        response.json.return_value = {
+            "candidates": [{
+                "content": {
+                    "parts": [{"text": "IMDb rating: 7.7 / 10"}],
+                },
+            }],
+        }
+
+        with patch(
+            "utils.movie_fetcher.requests.post",
+            return_value=response,
+        ) as post:
+            result = get_gemini_movie_ratings("Drishyam: The Conclusion", "key")
+
+        self.assertIsNone(result)
+        self.assertEqual(post.call_count, 3)
+
     @patch("utils.movie_fetcher.requests.get")
     def test_get_imdb_reviews_filters_search_results(self, get):
         response = Mock()
