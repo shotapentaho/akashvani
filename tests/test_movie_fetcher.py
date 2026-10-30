@@ -159,6 +159,8 @@ class MovieFetcherTests(unittest.TestCase):
             "knowledge_graph": {
                 "directed_by": [{"name": "Denis Villeneuve"}],
                 "produced_by": [{"name": "Mary Parent"}],
+                "release_date": "October 22, 2021",
+                "language": "English",
                 "cast": [
                     {"name": "Timothée Chalamet"},
                     {"name": "Rebecca Ferguson"},
@@ -186,16 +188,19 @@ class MovieFetcherTests(unittest.TestCase):
             rating,
             {
                 "rating": 8.0,
+                "release_date": "October 22, 2021",
+                "language": "English",
                 "director": "Denis Villeneuve",
                 "producer": "Mary Parent",
                 "actors": "Timothée Chalamet, Rebecca Ferguson",
+                "lead_cast": "Timothée Chalamet, Rebecca Ferguson",
                 "writers": "Jon Spaihts, Denis Villeneuve, Eric Roth",
                 "url": "https://www.imdb.com/title/tt1160419/",
             },
         )
         self.assertEqual(
             get.call_args.kwargs["params"]["q"],
-            'site:imdb.com/title "Dune" IMDb rating director producer cast writer',
+            'site:imdb.com/title "Dune" IMDb rating release date language director cast',
         )
 
     @patch("utils.movie_fetcher.requests.get")

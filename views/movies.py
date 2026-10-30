@@ -94,7 +94,7 @@ def render_movie_reviews(
 
     imdb_rating = None
     try:
-        with st.spinner(f"🔎 Finding IMDb rating and director for '{movie_title}'..."):
+        with st.spinner(f"🔎 Finding IMDb rating and movie details for '{movie_title}'..."):
             imdb_rating = get_imdb_rating(movie_title, serpapi_key)
         record_api_call(
             "serpapi_imdb_rating",
@@ -114,14 +114,13 @@ def render_movie_reviews(
         if imdb_rating.get("rating") and not has_gemini_imdb_rating:
             st.metric("IMDb rating (out of 10)", imdb_rating["rating"])
         for field, label in (
+            ("release_date", "Release Date"),
+            ("language", "Language"),
             ("director", "Director"),
-            ("producer", "Producer"),
-            ("actors", "Actors"),
-            ("writers", "Writers"),
+            ("lead_cast", "Lead Cast"),
         ):
             if imdb_rating.get(field):
                 st.write(f"**{label}:** {imdb_rating[field]}")
-        st.link_button("View on IMDb", imdb_rating["url"])
 
     rotten_tomatoes_rating = None
     try:
