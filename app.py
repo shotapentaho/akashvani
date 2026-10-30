@@ -432,11 +432,12 @@ with st.container():
     if st_keyup is not None:
         # st_keyup does not support help= or placeholder=.
         st.markdown("**Search topic**")
-        query = st_keyup(
+        query_input = st_keyup(
             "",
             debounce=DEBOUNCE_MS,
             key="search_query",
         ) or ""
+        query = query_input or st.session_state.get("active_query", "")
 
         st.caption(
             "Type a topic and pause for 2 seconds. Results appear automatically. "
@@ -483,6 +484,7 @@ auto_search = should_auto_run(
 
 if auto_search:
     st.session_state.last_search_fingerprint = _fingerprint
+    st.session_state.active_query = query
 
 weather_selection_active = (
     st.session_state.get("weather_selection_query") == query
