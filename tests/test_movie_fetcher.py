@@ -127,6 +127,51 @@ class MovieFetcherTests(unittest.TestCase):
         )
         self.assertEqual(post.call_args.kwargs["params"], {"key": "key"})
 
+    def test_parse_gemini_movie_ratings_ignores_unrelated_numbers(self):
+        response_text = (
+            "The 2024 film has 155,000 votes. "
+            "IMDb rating: 7.7 / 10 based on 12,345 user ratings. "
+            "BookMyShow rating unavailable."
+        )
+
+        from utils.movie_fetcher import _parse_gemini_movie_ratings
+
+        self.assertEqual(
+            _parse_gemini_movie_ratings(response_text),
+            [{
+                "source": "IMDb",
+                "label": "IMDb rating",
+                "rating": 7.7,
+                "scale": 10,
+            }],
+        )
+
+    def test_parse_gemini_movie_ratings_supports_score_before_source(self):
+        response_text = (
+            "The audience score is 8.4 out of 10 on BookMyShow. "
+            "IMDb: 7.9/10."
+        )
+
+        from utils.movie_fetcher import _parse_gemini_movie_ratings
+
+        self.assertEqual(
+            _parse_gemini_movie_ratings(response_text),
+            [
+                {
+                    "source": "IMDb",
+                    "label": "IMDb rating",
+                    "rating": 7.9,
+                    "scale": 10,
+                },
+                {
+                    "source": "BookMyShow",
+                    "label": "BookMyShow user rating",
+                    "rating": 8.4,
+                    "scale": 10,
+                },
+            ],
+        )
+
     @patch("utils.movie_fetcher.requests.get")
     def test_get_imdb_reviews_filters_search_results(self, get):
         response = Mock()

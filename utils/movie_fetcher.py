@@ -238,9 +238,9 @@ def _extract_out_of_ten_rating(text: str, source: str) -> Optional[float]:
     rating = r"(\d(?:\.\d+)?)"
     scale = r"(?:out\s+of\s+10|/\s*10)"
     patterns = (
-        rf"\b{source}\b[^.\n]{{0,100}}?{rating}\s*{scale}\b",
+        rf"\b{source}\b[^.\n]{{0,100}}?"
+        rf"(?:rating|score)?\s*[:\-]?\s*{rating}\s*{scale}\b",
         rf"{rating}\s*{scale}\s*[^.\n]{{0,60}}\b{source}\b",
-        rf"\b{source}\b[^.\n]{{0,40}}?(?:rating|score)?\s*[:\-]?\s*{rating}\b",
     )
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
