@@ -182,14 +182,26 @@ def _extract_numeric_field(value, field_names, maximum: float) -> Optional[float
 
 def _extract_imdb_rating(value) -> Optional[float]:
     if isinstance(value, dict):
-        for key in (
-            "ratingValue",
+        preferred_keys = (
+            "ratingvalue",
             "rating",
             "rating_value",
-            "aggregateRating",
+            "aggregaterating",
+            "imdb rating",
+            "imdbrating",
+            "score",
             "value",
-        ):
-            if key in value:
+        )
+        normalized_keys = {
+            re.sub(r"[^a-z0-9]", "", key.casefold()): key
+            for key in value
+            if isinstance(key, str)
+        }
+        for preferred_key in preferred_keys:
+            key = normalized_keys.get(
+                re.sub(r"[^a-z0-9]", "", preferred_key)
+            )
+            if key is not None:
                 rating = _extract_imdb_rating(value[key])
                 if rating is not None:
                     return rating
@@ -206,17 +218,45 @@ def _extract_imdb_rating(value) -> Optional[float]:
         return None
     if isinstance(value, str):
         match = re.search(
-            r"\b(\d(?:\.\d+)?)\s*(?:/10|out of 10)\b",
+            r"\b(\d{1,2}(?:\.\d+)?)\s*(?:/10|out of 10)\b",
             value,
             re.IGNORECASE,
         )
         if match:
-            return float(match.group(1))
+            rating = float(match.group(1))
+            return rating if 0 <= rating <= 10 else None
+        match = re.fullmatch(r"\s*(\d{1,2}(?:\.\d+)?)\s*", value)
+        if match:
+            rating = float(match.group(1))
+            return rating if 0 <= rating <= 10 else None
     try:
         rating = float(value)
     except (TypeError, ValueError):
         return None
     return rating if 0 <= rating <= 10 else None
+
+
+def _extract_imdb_rating_from_text(text: str) -> Optional[float]:
+    """Extract IMDb scores from labeled and search-snippet formats."""
+    if not text:
+        return None
+
+    number = r"(\d{1,2}(?:\.\d+)?)"
+    patterns = (
+        rf"\b(?:IMDb|IMDB)\b[^.\n]{{0,50}}?"
+        rf"(?:rating|score)?\s*[:\-]?\s*{number}"
+        rf"(?:\s*(?:/10|out of 10))?",
+        rf"{number}\s*(?:/10|out of 10)\s*[^.\n]{{0,50}}?"
+        rf"\b(?:IMDb|IMDB)\b",
+        rf"\b(?:IMDb|IMDB)\s+(?:rating|score)\s*[:\-]?\s*{number}\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            rating = float(match.group(1))
+            if 0 <= rating <= 10:
+                return rating
+    return None
 
 
 def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float]:
@@ -304,7 +344,8 @@ def _parse_gemini_movie_ratings(answer: str) -> List[Dict[str, object]]:
         (
             "IMDb",
             "IMDb rating",
-            _extract_out_of_ten_rating(answer, r"IMDb"),
+            _extract_imdb_rating_from_text(answer)
+            or _extract_out_of_ten_rating(answer, r"IMDb"),
             10,
         ),
         (
@@ -407,18 +448,6 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         "director cast",
         api_key,
     )
-    rating_pattern = re.compile(
-        r"(?:(?:IMDb|IMDB)\s+)?(?:rating|score)\s*[:\-]?\s*"
-        r"(\d(?:\.\d)?)(?:\s*(?:/10|out of 10))\b|"
-        r"\b(\d(?:\.\d)?)\s*(?:/10|out of 10)\s*"
-        r"(?:[^.\n]{0,40}\b(?:IMDb|IMDB)\b)?",
-        re.IGNORECASE,
-    )
-    labeled_rating_pattern = re.compile(
-        r"\b(?:IMDb|IMDB)\s+(?:rating|score)\s*[:\-]?\s*"
-        r"(\d(?:\.\d)?)\b",
-        re.IGNORECASE,
-    )
     director_pattern = re.compile(
         r"\b(?:directed by|director(?:s)?\s*[:\-])\s*([^|.;\n]+)",
         re.IGNORECASE,
@@ -462,6 +491,7 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         None,
     )
     graph_rating = graph_rating if graph_rating is not None else structured_rating
+    fallback_details = None
 
     for result in payload.get("organic_results") or []:
         url = result.get("link") or result.get("url", "")
@@ -481,21 +511,13 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
             )
             if part
         )
-        rating_match = rating_pattern.search(text)
+        text_rating = _extract_imdb_rating_from_text(text)
+        if text_rating is None:
+            text_rating = _extract_labeled_rating(text, r"(?:rating|score)", 10)
         details = {"url": url}
-        if rating_match:
-            details["rating"] = float(
-                rating_match.group(1) or rating_match.group(2)
-            )
-        else:
-            labeled_rating_match = labeled_rating_pattern.search(text)
-            rating = (
-                float(labeled_rating_match.group(1))
-                if labeled_rating_match
-                else _extract_imdb_rating(rich_snippet) or graph_rating
-            )
-            if rating is not None and 0 <= rating <= 10:
-                details["rating"] = rating
+        rating = text_rating or _extract_imdb_rating(rich_snippet) or graph_rating
+        if rating is not None and 0 <= rating <= 10:
+            details["rating"] = rating
 
         credits = {
             "release_date": (
@@ -547,8 +569,12 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
                 details[field] = credit
         if details.get("actors"):
             details["lead_cast"] = details["actors"]
-        if details.get("rating") is not None or len(details) > 1:
+        if details.get("rating") is not None:
             return details
+        if len(details) > 1 and fallback_details is None:
+            fallback_details = details
+    if fallback_details is not None:
+        return fallback_details
     if graph_rating is not None:
         result_url = next(
             (
