@@ -156,11 +156,21 @@ def _display_text(value) -> str:
 
 def _extract_imdb_rating(value) -> Optional[float]:
     if isinstance(value, dict):
-        for key in ("ratingValue", "rating", "value"):
+        for key in (
+            "ratingValue",
+            "rating",
+            "rating_value",
+            "aggregateRating",
+            "value",
+        ):
             if key in value:
                 rating = _extract_imdb_rating(value[key])
                 if rating is not None:
                     return rating
+        for nested_value in value.values():
+            rating = _extract_imdb_rating(nested_value)
+            if rating is not None:
+                return rating
         return None
     if isinstance(value, list):
         for item in value:
@@ -179,7 +189,7 @@ def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float
     rating = r"(\d{1,3}(?:\.\d+)?)"
     patterns = (
         rf"{rating}\s*%?\s*{label}",
-        rf"{label}[^0-9]{{0,30}}{rating}\s*%?",
+        rf"{label}[^0-9]{{0,30}}{rating}\s*%?(?:\s*(?:out of|/)\s*{scale})?",
     )
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
@@ -195,6 +205,7 @@ def _extract_out_of_ten_rating(text: str, source: str) -> Optional[float]:
     patterns = (
         rf"\b{source}\b[^.\n]{{0,100}}?{rating}\s*(?:out of 10|/10)\b",
         rf"{rating}\s*(?:out of 10|/10)\s*[^.\n]{{0,60}}\b{source}\b",
+        rf"\b{source}\b[^.\n]{{0,40}}?(?:rating|score)?\s*[:\-]?\s*{rating}\b",
     )
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
@@ -329,11 +340,15 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         api_key,
     )
     rating_pattern = re.compile(
-        r"(?:(?:IMDb\s+)?rating\s*[:\-]?\s*)?(\d(?:\.\d)?)(?:/10)\b",
+        r"(?:(?:IMDb|IMDB)\s+)?(?:rating|score)\s*[:\-]?\s*"
+        r"(\d(?:\.\d)?)(?:\s*(?:/10|out of 10))\b|"
+        r"\b(\d(?:\.\d)?)\s*(?:/10|out of 10)\s*"
+        r"(?:[^.\n]{0,40}\b(?:IMDb|IMDB)\b)?",
         re.IGNORECASE,
     )
     labeled_rating_pattern = re.compile(
-        r"\bIMDb\s+rating\s*[:\-]?\s*(\d(?:\.\d)?)\b",
+        r"\b(?:IMDb|IMDB)\s+(?:rating|score)\s*[:\-]?\s*"
+        r"(\d(?:\.\d)?)\b",
         re.IGNORECASE,
     )
     director_pattern = re.compile(
@@ -379,13 +394,15 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         rating_match = rating_pattern.search(text)
         details = {"url": url}
         if rating_match:
-            details["rating"] = float(rating_match.group(1))
+            details["rating"] = float(
+                rating_match.group(1) or rating_match.group(2)
+            )
         else:
             labeled_rating_match = labeled_rating_pattern.search(text)
             rating = (
                 float(labeled_rating_match.group(1))
                 if labeled_rating_match
-                else graph_rating
+                else _extract_imdb_rating(rich_snippet) or graph_rating
             )
             if rating is not None and 0 <= rating <= 10:
                 details["rating"] = rating
@@ -440,7 +457,7 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
                 details[field] = credit
         if details.get("actors"):
             details["lead_cast"] = details["actors"]
-        if len(details) > 1:
+        if details.get("rating") is not None or len(details) > 1:
             return details
     return {"rating": graph_rating} if graph_rating is not None else None
 
@@ -458,8 +475,10 @@ def get_rotten_tomatoes_rating(
         api_key,
     )
     rating_pattern = re.compile(
-        r"(?:Tomatometer\s*[:\-]?\s*(\d{1,3}(?:\.\d+)?)\s*%|"
-        r"(\d{1,3}(?:\.\d+)?)\s*%\s*Tomatometer)",
+        r"(?:Tomatometer(?:\s+(?:score|rating))?\s*[:\-]?\s*"
+        r"(\d{1,3}(?:\.\d+)?)\s*(?:%|/100)?|"
+        r"(\d{1,3}(?:\.\d+)?)\s*(?:%|/100)\s*"
+        r"Tomatometer)",
         re.IGNORECASE,
     )
 
@@ -486,7 +505,9 @@ def get_rotten_tomatoes_rating(
         rating_match = rating_pattern.search(text)
         if rating_match:
             score = rating_match.group(1) or rating_match.group(2)
-            return {"rating": float(score), "url": url}
+            score = float(score)
+            if 0 <= score <= 100:
+                return {"rating": score, "url": url}
     return None
 
 
