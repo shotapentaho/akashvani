@@ -324,6 +324,53 @@ def _render_reviews(reviews, language_code, client):
         st.link_button(f"Read review on {review['source']}", review["url"])
 
 
+def _build_rating_chart_data(ratings):
+    """Keep one chart row for every supported rating returned by Gemini."""
+    scale_10_sources = {"IMDb", "BookMyShow"}
+    scale_100_labels = {"Tomatometer", "Popcornmeter"}
+    chart_rows = []
+
+    for rating in ratings:
+        source = rating.get("source")
+        label = rating.get("label")
+        scale = rating.get("scale")
+        if (
+            (source in scale_10_sources and scale == 10)
+            or (
+                source == "Rotten Tomatoes"
+                and label in scale_100_labels
+                and scale == 100
+            )
+        ):
+            chart_rows.append(
+                {
+                    "Rating": label,
+                    "Source": source,
+                    "Score": float(rating["rating"]),
+                    "Scale": scale,
+                    "Order": len(chart_rows),
+                }
+            )
+
+    label_counts = {}
+    for row in chart_rows:
+        label_counts[row["Rating"]] = label_counts.get(row["Rating"], 0) + 1
+    label_indexes = {}
+    for row in chart_rows:
+        label = row["Rating"]
+        label_indexes[label] = label_indexes.get(label, 0) + 1
+        row["Chart Rating"] = (
+            f"{label} ({label_indexes[label]})"
+            if label_counts[label] > 1
+            else label
+        )
+
+    return pd.DataFrame(
+        chart_rows,
+        columns=["Rating", "Chart Rating", "Source", "Score", "Scale", "Order"],
+    )
+
+
 def _render_gemini_rating_charts(
     ratings,
     movie_title,
@@ -332,36 +379,14 @@ def _render_gemini_rating_charts(
     voice_selection,
     client,
 ):
-    scale_10_sources = {"IMDb", "BookMyShow"}
-    scale_100_sources = {"Rotten Tomatoes"}
-    scale_100_labels = {"Tomatometer", "Popcornmeter"}
-
-    chart_data = pd.DataFrame(
-        [
-            {
-                "Rating": rating["label"],
-                "Source": rating["source"],
-                "Score": rating["rating"],
-                "Scale": rating["scale"],
-            }
-            for rating in ratings
-            if (
-                rating["source"] in scale_10_sources
-                or (
-                    rating["source"] in scale_100_sources
-                    and rating["label"] in scale_100_labels
-                )
-            )
-        ],
-        columns=["Rating", "Source", "Score", "Scale"],
-    )
+    chart_data = _build_rating_chart_data(ratings)
     chart_data_10 = chart_data[
-        chart_data["Source"].isin(scale_10_sources)
+        chart_data["Source"].isin({"IMDb", "BookMyShow"})
         & (chart_data["Scale"] == 10)
     ]
     chart_data_100 = chart_data[
-        chart_data["Source"].isin(scale_100_sources)
-        & chart_data["Rating"].isin(scale_100_labels)
+        (chart_data["Source"] == "Rotten Tomatoes")
+        & chart_data["Rating"].isin({"Tomatometer", "Popcornmeter"})
         & (chart_data["Scale"] == 100)
     ]
 
@@ -369,7 +394,11 @@ def _render_gemini_rating_charts(
         alt.Chart(chart_data_10)
         .mark_bar()
         .encode(
-            x=alt.X("Rating:N", sort=None, axis=alt.Axis(labelAngle=-35)),
+            x=alt.X(
+                "Chart Rating:N",
+                sort=alt.SortField(field="Order", order="ascending"),
+                axis=alt.Axis(labelAngle=-35),
+            ),
             y=alt.Y("Score:Q", scale=alt.Scale(domain=[0, 10])),
             color=alt.Color(
                 "Rating:N",
@@ -390,7 +419,11 @@ def _render_gemini_rating_charts(
         alt.Chart(chart_data_100)
         .mark_bar()
         .encode(
-            x=alt.X("Rating:N", sort=None, axis=alt.Axis(labelAngle=-35)),
+            x=alt.X(
+                "Chart Rating:N",
+                sort=alt.SortField(field="Order", order="ascending"),
+                axis=alt.Axis(labelAngle=-35),
+            ),
             y=alt.Y("Score:Q", scale=alt.Scale(domain=[0, 100])),
             color=alt.Color(
                 "Rating:N",
