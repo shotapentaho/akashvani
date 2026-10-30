@@ -250,6 +250,32 @@ class MovieFetcherTests(unittest.TestCase):
         self.assertEqual(get_imdb_rating("Dune", "api-key"), {"rating": 8.2})
 
     @patch("utils.movie_fetcher.requests.get")
+    def test_get_imdb_rating_from_current_search_result_formats(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "organic_results": [
+                {
+                    "title": "Dune (2021) - IMDb",
+                    "link": "https://www.imdb.com/title/tt1160419/",
+                    "rich_snippet": {
+                        "top": {
+                            "detected_extensions": {"rating": 8.1},
+                        }
+                    },
+                },
+            ],
+        }
+        get.return_value = response
+
+        self.assertEqual(
+            get_imdb_rating("Dune", "api-key"),
+            {
+                "rating": 8.1,
+                "url": "https://www.imdb.com/title/tt1160419/",
+            },
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
     def test_get_rotten_tomatoes_rating_from_movie_result(self, get):
         response = Mock()
         response.json.return_value = {
@@ -280,6 +306,28 @@ class MovieFetcherTests(unittest.TestCase):
         self.assertEqual(
             get.call_args.kwargs["params"]["q"],
             'site:rottentomatoes.com/m "Dune" Tomatometer',
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_rotten_tomatoes_rating_from_score_label_without_percent(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "organic_results": [
+                {
+                    "title": "Dune | Rotten Tomatoes",
+                    "link": "https://www.rottentomatoes.com/m/dune",
+                    "snippet": "Tomatometer score: 83",
+                },
+            ],
+        }
+        get.return_value = response
+
+        self.assertEqual(
+            get_rotten_tomatoes_rating("Dune", "api-key"),
+            {
+                "rating": 83.0,
+                "url": "https://www.rottentomatoes.com/m/dune",
+            },
         )
 
     @patch("utils.movie_fetcher.requests.get")
