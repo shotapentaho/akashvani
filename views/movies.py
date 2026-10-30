@@ -1,3 +1,5 @@
+import altair as alt
+import pandas as pd
 import streamlit as st
 
 from utils.movie_fetcher import (
@@ -65,18 +67,19 @@ def render_movie_reviews(
     if gemini_movie_data:
         st.markdown("### Ratings from Gemini")
         if gemini_ratings:
-            st.table(
-                [
-                    {
-                        "Rating type": f"{rating['label']} ({rating['scale']})",
-                        "Rating": rating.get(
-                            "rating_text",
-                            f"{rating['rating']:g}",
-                        ),
-                    }
-                    for rating in gemini_ratings
-                ]
-            )
+            # st.table(
+            #     [
+            #         {
+            #             "Rating type": f"{rating['label']} ({rating['scale']})",
+            #             "Rating": rating.get(
+            #                 "rating_text",
+            #                 f"{rating['rating']:g}",
+            #             ),
+            #         }
+            #         for rating in gemini_ratings
+            #     ]
+            # )
+            _render_gemini_rating_charts(gemini_ratings)
         else:
             st.info("No ratings were found in the grounded results.")
 
@@ -291,6 +294,50 @@ def _render_reviews(reviews, language_code, client):
             )
         st.write(review_text)
         st.link_button(f"Read review on {review['source']}", review["url"])
+
+
+def _render_gemini_rating_charts(ratings):
+    chart_data = pd.DataFrame(
+        [
+            {
+                "Rating": rating["label"],
+                "Score (10)": rating["rating"] / rating["scale"] * 10,
+                "Score (100)": rating["rating"] / rating["scale"] * 100,
+            }
+            for rating in ratings
+        ]
+    )
+
+    chart_10 = (
+        alt.Chart(chart_data)
+        .mark_bar()
+        .encode(
+            x=alt.X("Rating:N", sort=None, axis=alt.Axis(labelAngle=-35)),
+            y=alt.Y("Score (10):Q", scale=alt.Scale(domain=[0, 10])),
+            tooltip=[
+                alt.Tooltip("Rating:N"),
+                alt.Tooltip("Score (10):Q", format=".1f"),
+            ],
+        )
+        .properties(title="Movie Ratings (Scale 10)")
+    )
+    chart_100 = (
+        alt.Chart(chart_data)
+        .mark_bar()
+        .encode(
+            x=alt.X("Rating:N", sort=None, axis=alt.Axis(labelAngle=-35)),
+            y=alt.Y("Score (100):Q", scale=alt.Scale(domain=[0, 100])),
+            tooltip=[
+                alt.Tooltip("Rating:N"),
+                alt.Tooltip("Score (100):Q", format=".1f"),
+            ],
+        )
+        .properties(title="Movie Ratings (Scale 100)")
+    )
+
+    columns = st.columns(2)
+    columns[0].altair_chart(chart_10, use_container_width=True)
+    columns[1].altair_chart(chart_100, use_container_width=True)
 
 
 def _render_primary_ratings(
