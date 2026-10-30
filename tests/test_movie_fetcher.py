@@ -18,6 +18,9 @@ class MovieFetcherTests(unittest.TestCase):
         self.assertTrue(is_movie_review_query("movie review of Dune"))
         self.assertTrue(is_movie_review_query("reviews for Interstellar"))
         self.assertTrue(is_movie_review_query("Oppenheimer review"))
+        self.assertTrue(is_movie_review_query("rating for Dune"))
+        self.assertTrue(is_movie_review_query("rating Dune"))
+        self.assertTrue(is_movie_review_query("Dune ratings"))
         self.assertFalse(is_movie_review_query("movie news"))
 
     def test_movie_query_detection(self):
@@ -25,6 +28,8 @@ class MovieFetcherTests(unittest.TestCase):
             "Dune movie",
             "movie Dune",
             "Dune rating",
+            "rating for Dune",
+            "ratings for the movie Interstellar",
             "movie rating of Dune",
             "reviews for Interstellar",
         ):
@@ -38,6 +43,12 @@ class MovieFetcherTests(unittest.TestCase):
         self.assertEqual(extract_movie_title("movie review Dune"), "Dune")
         self.assertEqual(extract_movie_title("Dune movie"), "Dune")
         self.assertEqual(extract_movie_title("Dune rating"), "Dune")
+        self.assertEqual(extract_movie_title("rating for Dune"), "Dune")
+        self.assertEqual(
+            extract_movie_title("ratings for the movie Interstellar"),
+            "Interstellar",
+        )
+        self.assertEqual(extract_movie_title("rating Dune"), "Dune")
         self.assertEqual(extract_movie_title("movie rating of Dune"), "Dune")
         self.assertEqual(
             extract_movie_title("reviews for the movie Interstellar"),
