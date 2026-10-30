@@ -319,12 +319,13 @@ def get_gemini_movie_ratings(
 
 
 def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object]]:
-    """Find IMDb rating and available movie credits in Google results."""
+    """Find an IMDb rating and available movie details in Google results."""
     if not movie_title or not api_key:
         return None
 
     payload = _google_search(
-        f'site:imdb.com/title "{movie_title}" IMDb rating director producer cast writer',
+        f'site:imdb.com/title "{movie_title}" IMDb rating release date language '
+        "director cast",
         api_key,
     )
     rating_pattern = re.compile(
@@ -337,6 +338,14 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
     )
     director_pattern = re.compile(
         r"\b(?:directed by|director(?:s)?\s*[:\-])\s*([^|.;\n]+)",
+        re.IGNORECASE,
+    )
+    release_date_pattern = re.compile(
+        r"\b(?:release date|released)\s*[:\-]?\s*([^|.;\n]+)",
+        re.IGNORECASE,
+    )
+    language_pattern = re.compile(
+        r"\b(?:languages?|original language)\s*[:\-]?\s*([^|.;\n]+)",
         re.IGNORECASE,
     )
 
@@ -382,6 +391,14 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
                 details["rating"] = rating
 
         credits = {
+            "release_date": (
+                ("release_date", "release date", "datePublished"),
+                release_date_pattern,
+            ),
+            "language": (
+                ("language", "languages", "inLanguage", "original language"),
+                language_pattern,
+            ),
             "director": (("director", "directed_by", "directed by"), director_pattern),
             "producer": (
                 ("producer", "producers", "produced_by", "produced by"),
@@ -421,6 +438,8 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
                     credit = credit_match.group(1).strip()
             if credit:
                 details[field] = credit
+        if details.get("actors"):
+            details["lead_cast"] = details["actors"]
         if len(details) > 1:
             return details
     return None
