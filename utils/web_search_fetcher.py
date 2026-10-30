@@ -1,5 +1,6 @@
 """Live web search fallbacks for news queries."""
 
+import os
 from datetime import datetime
 from typing import Dict, List
 from urllib.parse import urlparse
@@ -7,9 +8,10 @@ from urllib.parse import urlparse
 import requests
 
 
+GEMINI_MODEL = (os.getenv("GEMINI_MODEL") or "gemini-2.5-flash").strip()
 GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
+    f"{GEMINI_MODEL}:generateContent"
 )
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
 
