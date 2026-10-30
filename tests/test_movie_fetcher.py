@@ -239,7 +239,7 @@ class MovieFetcherTests(unittest.TestCase):
         response.json.return_value = {
             "knowledge_graph": {
                 "aggregateRating": {
-                    "ratingValue": "8.2",
+                    "ratingValue": "8.2/10",
                     "ratingCount": "12345",
                 }
             },
@@ -248,6 +248,32 @@ class MovieFetcherTests(unittest.TestCase):
         get.return_value = response
 
         self.assertEqual(get_imdb_rating("Dune", "api-key"), {"rating": 8.2})
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_imdb_rating_retries_after_details_without_score(self, get):
+        details_response = Mock()
+        details_response.json.return_value = {
+            "knowledge_graph": {"release_date": "2021"},
+            "organic_results": [{
+                "title": "Dune (2021) - IMDb",
+                "link": "https://www.imdb.com/title/tt1160419/",
+                "snippet": "Cast and crew information.",
+            }],
+        }
+        rating_response = Mock()
+        rating_response.json.return_value = {
+            "organic_results": [{
+                "title": "Dune (2021) - IMDb",
+                "link": "https://www.imdb.com/title/tt1160419/",
+                "rich_snippet": {"top": {"rating": "8.0/10"}},
+            }],
+        }
+        get.side_effect = [details_response, rating_response]
+
+        rating = get_imdb_rating("Dune", "api-key")
+
+        self.assertEqual(rating["rating"], 8.0)
+        self.assertEqual(get.call_count, 2)
 
     @patch("utils.movie_fetcher.requests.get")
     def test_get_rotten_tomatoes_rating_from_movie_result(self, get):
@@ -281,6 +307,35 @@ class MovieFetcherTests(unittest.TestCase):
             get.call_args.kwargs["params"]["q"],
             'site:rottentomatoes.com/m "Dune" Tomatometer',
         )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_rotten_tomatoes_rating_retries_broad_search(self, get):
+        no_rating_response = Mock()
+        no_rating_response.json.return_value = {
+            "organic_results": [{
+                "title": "Dune Reviews",
+                "link": "https://www.rottentomatoes.com/m/dune",
+                "snippet": "Reviews and audience reaction.",
+            }],
+        }
+        rating_response = Mock()
+        rating_response.json.return_value = {
+            "organic_results": [{
+                "title": "Dune Reviews",
+                "link": "https://www.rottentomatoes.com/m/dune",
+                "snippet": "Critics score: 83%.",
+            }],
+        }
+        get.side_effect = [no_rating_response, rating_response]
+
+        self.assertEqual(
+            get_rotten_tomatoes_rating("Dune", "api-key"),
+            {
+                "rating": 83.0,
+                "url": "https://www.rottentomatoes.com/m/dune",
+            },
+        )
+        self.assertEqual(get.call_count, 2)
 
     @patch("utils.movie_fetcher.requests.get")
     def test_get_rotten_tomatoes_reviews_filters_search_results(self, get):

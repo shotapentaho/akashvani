@@ -183,7 +183,7 @@ def render_movie_reviews(
             st.markdown(f"**{video['title']}**")
             st.link_button(f"Watch on YouTube ({index})", video["url"])
 
-    if rotten_tomatoes_rating:
+    if rotten_tomatoes_rating and rotten_tomatoes_rating.get("url"):
         st.link_button("View on Rotten Tomatoes", rotten_tomatoes_rating["url"])
     if imdb_rating:
         for field, label in (

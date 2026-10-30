@@ -156,7 +156,7 @@ def _display_text(value) -> str:
 
 def _extract_imdb_rating(value) -> Optional[float]:
     if isinstance(value, dict):
-        for key in ("ratingValue", "rating", "value"):
+        for key in ("ratingValue", "rating", "value", "aggregateRating"):
             if key in value:
                 rating = _extract_imdb_rating(value[key])
                 if rating is not None:
@@ -168,11 +168,53 @@ def _extract_imdb_rating(value) -> Optional[float]:
             if rating is not None:
                 return rating
         return None
-    try:
+    if isinstance(value, (int, float)):
         rating = float(value)
-    except (TypeError, ValueError):
+    else:
+        match = re.search(
+            r"(?<![\d.])((?:10(?:\.0+)?|[0-9](?:\.\d+)?))"
+            r"(?:\s*(?:/10|out of 10))?(?![\d.])",
+            str(value),
+            re.IGNORECASE,
+        )
+        if not match:
+            return None
+        rating = float(match.group(1))
+    if not 0 <= rating <= 10:
         return None
-    return rating if 0 <= rating <= 10 else None
+    return rating
+
+
+def _flatten_search_text(value) -> str:
+    if isinstance(value, dict):
+        return " ".join(
+            f"{key} {_flatten_search_text(item)}"
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return " ".join(_flatten_search_text(item) for item in value)
+    return str(value) if value is not None else ""
+
+
+def _find_google_imdb_rating(payload: Dict) -> Optional[float]:
+    for container in (
+        payload.get("knowledge_graph"),
+        payload.get("answer_box"),
+    ):
+        if not isinstance(container, dict):
+            continue
+        for key in (
+            "rating",
+            "ratingValue",
+            "rating_value",
+            "aggregateRating",
+            "rating_summary",
+        ):
+            if container.get(key) is not None:
+                rating = _extract_imdb_rating(container[key])
+                if rating is not None:
+                    return rating
+    return None
 
 
 def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float]:
@@ -323,19 +365,22 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
     if not movie_title or not api_key:
         return None
 
-    payload = _google_search(
+    queries = (
         f'site:imdb.com/title "{movie_title}" IMDb rating release date language '
         "director cast",
-        api_key,
+        f'"{movie_title}" IMDb rating',
     )
     rating_pattern = re.compile(
         r"(?:(?:IMDb\s+)?rating\s*[:\-]?\s*)?(\d(?:\.\d)?)(?:/10)\b",
         re.IGNORECASE,
     )
     labeled_rating_pattern = re.compile(
-        r"\bIMDb\s+rating\s*[:\-]?\s*(\d(?:\.\d)?)\b",
+        r"\bIMDb\s+(?:rating|score)\s*[:\-]?\s*(\d(?:\.\d)?)\b",
         re.IGNORECASE,
     )
+    best_details = {}
+    graph_rating = None
+
     director_pattern = re.compile(
         r"\b(?:directed by|director(?:s)?\s*[:\-])\s*([^|.;\n]+)",
         re.IGNORECASE,
@@ -348,101 +393,105 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         r"\b(?:languages?|original language)\s*[:\-]?\s*([^|.;\n]+)",
         re.IGNORECASE,
     )
-    knowledge_graph = payload.get("knowledge_graph") or {}
-    graph_rating = next(
-        (
-            _extract_imdb_rating(knowledge_graph[key])
-            for key in ("rating", "ratingValue", "aggregateRating")
-            if knowledge_graph.get(key) is not None
-        ),
-        None,
-    )
+    for query in queries:
+        payload = _google_search(query, api_key)
+        knowledge_graph = payload.get("knowledge_graph") or {}
+        current_graph_rating = _find_google_imdb_rating(payload)
+        if current_graph_rating is not None:
+            graph_rating = current_graph_rating
 
-    for result in payload.get("organic_results") or []:
-        url = result.get("link") or result.get("url", "")
-        if not _is_domain(url, "imdb.com") or "/title/" not in urlparse(url).path:
-            continue
+        for result in payload.get("organic_results") or []:
+            url = result.get("link") or result.get("url", "")
+            if (
+                not _is_domain(url, "imdb.com")
+                or "/title/" not in urlparse(url).path
+            ):
+                continue
 
-        rich_snippet = result.get("rich_snippet") or {}
-        text = " ".join(
-            part
-            for part in (
-                result.get("title", ""),
-                result.get("snippet", ""),
-                " ".join(
-                    str(value)
-                    for value in rich_snippet.values()
-                ),
+            rich_snippet = result.get("rich_snippet") or {}
+            text = " ".join(
+                part
+                for part in (
+                    result.get("title", ""),
+                    result.get("snippet", ""),
+                    _flatten_search_text(rich_snippet),
+                )
+                if part
             )
-            if part
-        )
-        rating_match = rating_pattern.search(text)
-        details = {"url": url}
-        if rating_match:
-            details["rating"] = float(rating_match.group(1))
-        else:
-            labeled_rating_match = labeled_rating_pattern.search(text)
-            rating = (
-                float(labeled_rating_match.group(1))
-                if labeled_rating_match
-                else graph_rating
-            )
-            if rating is not None and 0 <= rating <= 10:
+            rating = _extract_imdb_rating(rich_snippet)
+            if rating is None:
+                rating_match = rating_pattern.search(text)
+                if rating_match:
+                    rating = float(rating_match.group(1))
+            if rating is None:
+                labeled_rating_match = labeled_rating_pattern.search(text)
+                if labeled_rating_match:
+                    rating = float(labeled_rating_match.group(1))
+            if rating is None:
+                rating = current_graph_rating
+
+            details = {"url": url}
+            if rating is not None:
                 details["rating"] = rating
 
-        credits = {
-            "release_date": (
-                ("release_date", "release date", "datePublished"),
-                release_date_pattern,
-            ),
-            "language": (
-                ("language", "languages", "inLanguage", "original language"),
-                language_pattern,
-            ),
-            "director": (("director", "directed_by", "directed by"), director_pattern),
-            "producer": (
-                ("producer", "producers", "produced_by", "produced by"),
-                re.compile(
-                    r"\b(?:produced by|producers?\s*[:\-])\s*([^|.;\n]+)",
-                    re.IGNORECASE,
+            credits = {
+                "release_date": (
+                    ("release_date", "release date", "datePublished"),
+                    release_date_pattern,
                 ),
-            ),
-            "actors": (
-                ("actors", "cast", "starring", "stars"),
-                re.compile(
-                    r"\b(?:starring|stars|cast\s*[:\-])\s*([^|.;\n]+)",
-                    re.IGNORECASE,
+                "language": (
+                    ("language", "languages", "inLanguage", "original language"),
+                    language_pattern,
                 ),
-            ),
-            "writers": (
-                ("writers", "writer", "written_by", "written by"),
-                re.compile(
-                    r"\b(?:written by|writers?\s*[:\-])\s*([^|.;\n]+)",
-                    re.IGNORECASE,
+                "director": (("director", "directed_by", "directed by"), director_pattern),
+                "producer": (
+                    ("producer", "producers", "produced_by", "produced by"),
+                    re.compile(
+                        r"\b(?:produced by|producers?\s*[:\-])\s*([^|.;\n]+)",
+                        re.IGNORECASE,
+                    ),
                 ),
-            ),
-        }
-        for field, (aliases, pattern) in credits.items():
-            credit = next(
-                (
-                    _display_text(knowledge_graph[key])
-                    for key in aliases
-                    if knowledge_graph.get(key)
-                    and _display_text(knowledge_graph[key])
+                "actors": (
+                    ("actors", "cast", "starring", "stars"),
+                    re.compile(
+                        r"\b(?:starring|stars|cast\s*[:\-])\s*([^|.;\n]+)",
+                        re.IGNORECASE,
+                    ),
                 ),
-                None,
-            )
-            if not credit:
-                credit_match = pattern.search(text)
-                if credit_match:
-                    credit = credit_match.group(1).strip()
-            if credit:
-                details[field] = credit
-        if details.get("actors"):
-            details["lead_cast"] = details["actors"]
-        if len(details) > 1:
-            return details
-    return {"rating": graph_rating} if graph_rating is not None else None
+                "writers": (
+                    ("writers", "writer", "written_by", "written by"),
+                    re.compile(
+                        r"\b(?:written by|writers?\s*[:\-])\s*([^|.;\n]+)",
+                        re.IGNORECASE,
+                    ),
+                ),
+            }
+            for field, (aliases, pattern) in credits.items():
+                credit = next(
+                    (
+                        _display_text(knowledge_graph[key])
+                        for key in aliases
+                        if knowledge_graph.get(key)
+                        and _display_text(knowledge_graph[key])
+                    ),
+                    None,
+                )
+                if not credit:
+                    credit_match = pattern.search(text)
+                    if credit_match:
+                        credit = credit_match.group(1).strip()
+                if credit:
+                    details[field] = credit
+            if details.get("actors"):
+                details["lead_cast"] = details["actors"]
+            if rating is not None:
+                return details
+            if len(details) > len(best_details):
+                best_details = details
+
+    if graph_rating is not None:
+        best_details["rating"] = graph_rating
+    return best_details or None
 
 
 def get_rotten_tomatoes_rating(
@@ -453,40 +502,41 @@ def get_rotten_tomatoes_rating(
     if not movie_title or not api_key:
         return None
 
-    payload = _google_search(
+    queries = (
         f'site:rottentomatoes.com/m "{movie_title}" Tomatometer',
-        api_key,
+        f'"{movie_title}" Rotten Tomatoes Tomatometer',
     )
     rating_pattern = re.compile(
-        r"(?:Tomatometer\s*[:\-]?\s*(\d{1,3}(?:\.\d+)?)\s*%|"
-        r"(\d{1,3}(?:\.\d+)?)\s*%\s*Tomatometer)",
+        r"(?:(?:Tomatometer|critic(?:s)?\s+score)[^0-9]{0,40}"
+        r"(\d{1,3}(?:\.\d+)?)\s*%?|"
+        r"(\d{1,3}(?:\.\d+)?)\s*%?[^.!?\n]{0,40}"
+        r"(?:Tomatometer|critic(?:s)?\s+score))",
         re.IGNORECASE,
     )
 
-    for result in payload.get("organic_results") or []:
-        url = result.get("link") or result.get("url", "")
-        if (
-            not _is_domain(url, "rottentomatoes.com")
-            or "/m/" not in urlparse(url).path.lower()
-        ):
-            continue
+    for query in queries:
+        payload = _google_search(query, api_key)
+        for result in payload.get("organic_results") or []:
+            url = result.get("link") or result.get("url", "")
+            path = urlparse(url).path.lower()
+            is_movie_page = "/m/" in path or "/movies/" in path
+            if not _is_domain(url, "rottentomatoes.com") or not is_movie_page:
+                continue
 
-        text = " ".join(
-            part
-            for part in (
-                result.get("title", ""),
-                result.get("snippet", ""),
-                " ".join(
-                    str(value)
-                    for value in (result.get("rich_snippet") or {}).values()
-                ),
-            )
-            if part
+            text = _flatten_search_text(result)
+            rating_match = rating_pattern.search(text)
+            if rating_match:
+                score = rating_match.group(1) or rating_match.group(2)
+                return {"rating": float(score), "url": url}
+
+        structured_text = " ".join(
+            _flatten_search_text(payload.get(key))
+            for key in ("knowledge_graph", "answer_box")
         )
-        rating_match = rating_pattern.search(text)
+        rating_match = rating_pattern.search(structured_text)
         if rating_match:
             score = rating_match.group(1) or rating_match.group(2)
-            return {"rating": float(score), "url": url}
+            return {"rating": float(score)}
     return None
 
 
