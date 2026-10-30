@@ -79,7 +79,13 @@ def render_movie_reviews(
             #         for rating in gemini_ratings
             #     ]
             # )
-            _render_gemini_rating_charts(gemini_ratings)
+            _render_gemini_rating_charts(
+                gemini_ratings,
+                language_code,
+                speech_speed,
+                voice_selection,
+                client,
+            )
         else:
             st.info("No ratings were found in the grounded results.")
 
@@ -296,48 +302,142 @@ def _render_reviews(reviews, language_code, client):
         st.link_button(f"Read review on {review['source']}", review["url"])
 
 
-def _render_gemini_rating_charts(ratings):
+def _render_gemini_rating_charts(
+    ratings,
+    language_code,
+    speech_speed,
+    voice_selection,
+    client,
+):
+    scale_10_sources = {"IMDb", "BookMyShow"}
+    scale_100_sources = {"Rotten Tomatoes"}
+    scale_100_labels = {"Tomatometer", "Popcornmeter"}
+
     chart_data = pd.DataFrame(
         [
             {
                 "Rating": rating["label"],
-                "Score (10)": rating["rating"] / rating["scale"] * 10,
-                "Score (100)": rating["rating"] / rating["scale"] * 100,
+                "Source": rating["source"],
+                "Score": rating["rating"],
+                "Scale": rating["scale"],
             }
             for rating in ratings
-        ]
+            if (
+                rating["source"] in scale_10_sources
+                or (
+                    rating["source"] in scale_100_sources
+                    and rating["label"] in scale_100_labels
+                )
+            )
+        ],
+        columns=["Rating", "Source", "Score", "Scale"],
     )
+    chart_data_10 = chart_data[
+        chart_data["Source"].isin(scale_10_sources)
+        & (chart_data["Scale"] == 10)
+    ]
+    chart_data_100 = chart_data[
+        chart_data["Source"].isin(scale_100_sources)
+        & chart_data["Rating"].isin(scale_100_labels)
+        & (chart_data["Scale"] == 100)
+    ]
 
     chart_10 = (
-        alt.Chart(chart_data)
+        alt.Chart(chart_data_10)
         .mark_bar()
         .encode(
             x=alt.X("Rating:N", sort=None, axis=alt.Axis(labelAngle=-35)),
-            y=alt.Y("Score (10):Q", scale=alt.Scale(domain=[0, 10])),
+            y=alt.Y("Score:Q", scale=alt.Scale(domain=[0, 10])),
+            color=alt.Color(
+                "Rating:N",
+                scale=alt.Scale(
+                    domain=["IMDb rating", "BookMyShow user rating"],
+                    range=["#f5c518", "#e85d04"],
+                ),
+                legend=None,
+            ),
             tooltip=[
                 alt.Tooltip("Rating:N"),
-                alt.Tooltip("Score (10):Q", format=".1f"),
+                alt.Tooltip("Score:Q", format=".1f"),
             ],
         )
-        .properties(title="Movie Ratings (Scale 10)")
+        .properties(title="IMDb and BookMyShow (Scale 10)")
     )
     chart_100 = (
-        alt.Chart(chart_data)
+        alt.Chart(chart_data_100)
         .mark_bar()
         .encode(
             x=alt.X("Rating:N", sort=None, axis=alt.Axis(labelAngle=-35)),
-            y=alt.Y("Score (100):Q", scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y("Score:Q", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color(
+                "Rating:N",
+                scale=alt.Scale(
+                    domain=["Tomatometer", "Popcornmeter"],
+                    range=["#e63946", "#457b9d"],
+                ),
+                legend=None,
+            ),
             tooltip=[
                 alt.Tooltip("Rating:N"),
-                alt.Tooltip("Score (100):Q", format=".1f"),
+                alt.Tooltip("Score:Q", format=".1f"),
             ],
         )
-        .properties(title="Movie Ratings (Scale 100)")
+        .properties(title="Tomatometer and Popcornmeter (Scale 100)")
     )
 
     columns = st.columns(2)
-    columns[0].altair_chart(chart_10, use_container_width=True)
-    columns[1].altair_chart(chart_100, use_container_width=True)
+    if not chart_data_10.empty:
+        columns[0].altair_chart(chart_10, use_container_width=True)
+    else:
+        columns[0].info("No IMDb or BookMyShow ratings found.")
+    if not chart_data_100.empty:
+        columns[1].altair_chart(chart_100, use_container_width=True)
+    else:
+        columns[1].info("No Tomatometer or Popcornmeter ratings found.")
+
+    rating_summary = _build_rating_summary(ratings)
+    if rating_summary and st.button("🔊 Listen to ratings", key="movie_ratings_speech"):
+        spoken_summary = rating_summary
+        if language_code != "en":
+            spoken_summary = translate_to_language(
+                rating_summary,
+                language_code,
+                client,
+            )
+        if is_tts_available(language_code, voice_selection):
+            audio = text_to_speech(
+                spoken_summary,
+                language_code,
+                slow=speech_speed == "Slow 🐢",
+                voice=voice_selection,
+            )
+            if audio:
+                st.audio(audio, format="audio/mp3")
+        else:
+            st.info(f"Voice narration is not available for {language_code}.")
+
+
+def _build_rating_summary(ratings):
+    """Create a concise spoken summary for the four primary rating sources."""
+    summary_parts = []
+    for rating in ratings:
+        if rating["source"] == "IMDb" and rating["scale"] == 10:
+            summary_parts.append(f"IMDb is rated {rating['rating']:g} out of 10")
+        elif rating["source"] == "BookMyShow" and rating["scale"] == 10:
+            summary_parts.append(
+                f"BookMyShow is rated {rating['rating']:g} out of 10"
+            )
+        elif (
+            rating["source"] == "Rotten Tomatoes"
+            and rating["label"] in {"Tomatometer", "Popcornmeter"}
+            and rating["scale"] == 100
+        ):
+            summary_parts.append(
+                f"{rating['label']} is {rating['rating']:g} out of 100"
+            )
+    if not summary_parts:
+        return ""
+    return "Here are the movie ratings: " + ". ".join(summary_parts) + "."
 
 
 def _render_primary_ratings(
