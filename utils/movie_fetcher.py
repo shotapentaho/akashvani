@@ -154,6 +154,27 @@ def _display_text(value) -> str:
     return ""
 
 
+def _extract_imdb_rating(value) -> Optional[float]:
+    if isinstance(value, dict):
+        for key in ("ratingValue", "rating", "value"):
+            if key in value:
+                rating = _extract_imdb_rating(value[key])
+                if rating is not None:
+                    return rating
+        return None
+    if isinstance(value, list):
+        for item in value:
+            rating = _extract_imdb_rating(item)
+            if rating is not None:
+                return rating
+        return None
+    try:
+        rating = float(value)
+    except (TypeError, ValueError):
+        return None
+    return rating if 0 <= rating <= 10 else None
+
+
 def _extract_labeled_rating(text: str, label: str, scale: int) -> Optional[float]:
     rating = r"(\d{1,3}(?:\.\d+)?)"
     patterns = (
@@ -306,7 +327,14 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         f'site:imdb.com/title "{movie_title}" IMDb rating director producer cast writer',
         api_key,
     )
-    rating_pattern = re.compile(r"(?<!\d)(\d(?:\.\d)?)/10\b", re.IGNORECASE)
+    rating_pattern = re.compile(
+        r"(?:(?:IMDb\s+)?rating\s*[:\-]?\s*)?(\d(?:\.\d)?)(?:/10)\b",
+        re.IGNORECASE,
+    )
+    labeled_rating_pattern = re.compile(
+        r"\bIMDb\s+rating\s*[:\-]?\s*(\d(?:\.\d)?)\b",
+        re.IGNORECASE,
+    )
     director_pattern = re.compile(
         r"\b(?:directed by|director(?:s)?\s*[:\-])\s*([^|.;\n]+)",
         re.IGNORECASE,
@@ -335,6 +363,23 @@ def get_imdb_rating(movie_title: str, api_key: str) -> Optional[Dict[str, object
         details = {"url": url}
         if rating_match:
             details["rating"] = float(rating_match.group(1))
+        else:
+            labeled_rating_match = labeled_rating_pattern.search(text)
+            graph_rating = next(
+                (
+                    _extract_imdb_rating(knowledge_graph[key])
+                    for key in ("rating", "ratingValue", "aggregateRating")
+                    if knowledge_graph.get(key) is not None
+                ),
+                None,
+            )
+            rating = (
+                float(labeled_rating_match.group(1))
+                if labeled_rating_match
+                else graph_rating
+            )
+            if rating is not None and 0 <= rating <= 10:
+                details["rating"] = rating
 
         credits = {
             "director": (("director", "directed_by", "directed by"), director_pattern),

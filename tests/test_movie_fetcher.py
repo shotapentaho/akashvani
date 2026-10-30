@@ -199,6 +199,36 @@ class MovieFetcherTests(unittest.TestCase):
         )
 
     @patch("utils.movie_fetcher.requests.get")
+    def test_get_imdb_rating_from_structured_knowledge_graph(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "knowledge_graph": {
+                "aggregateRating": {
+                    "ratingValue": "8.2",
+                    "ratingCount": "12345",
+                }
+            },
+            "organic_results": [
+                {
+                    "title": "Dune (2021) - IMDb",
+                    "link": "https://www.imdb.com/title/tt1160419/",
+                    "snippet": "Cast and crew information.",
+                },
+            ],
+        }
+        get.return_value = response
+
+        rating = get_imdb_rating("Dune", "api-key")
+
+        self.assertEqual(
+            rating,
+            {
+                "rating": 8.2,
+                "url": "https://www.imdb.com/title/tt1160419/",
+            },
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
     def test_get_rotten_tomatoes_rating_from_movie_result(self, get):
         response = Mock()
         response.json.return_value = {
