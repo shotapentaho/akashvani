@@ -154,6 +154,32 @@ def _display_text(value) -> str:
     return ""
 
 
+def _extract_numeric_field(value, field_names, maximum: float) -> Optional[float]:
+    """Find a bounded numeric value under one of the supplied field names."""
+    if isinstance(value, dict):
+        for key, nested_value in value.items():
+            if key.casefold() in field_names:
+                if isinstance(nested_value, (int, float)):
+                    rating = float(nested_value)
+                else:
+                    match = re.search(
+                        r"\b(\d{1,3}(?:\.\d+)?)\b",
+                        str(nested_value),
+                    )
+                    rating = float(match.group(1)) if match else None
+                if rating is not None and 0 <= rating <= maximum:
+                    return rating
+            rating = _extract_numeric_field(nested_value, field_names, maximum)
+            if rating is not None:
+                return rating
+    elif isinstance(value, list):
+        for item in value:
+            rating = _extract_numeric_field(item, field_names, maximum)
+            if rating is not None:
+                return rating
+    return None
+
+
 def _extract_imdb_rating(value) -> Optional[float]:
     if isinstance(value, dict):
         for key in (
@@ -556,6 +582,7 @@ def get_rotten_tomatoes_rating(
         ):
             continue
 
+        rich_snippet = result.get("rich_snippet") or {}
         text = " ".join(
             part
             for part in (
@@ -563,12 +590,20 @@ def get_rotten_tomatoes_rating(
                 result.get("snippet", ""),
                 " ".join(
                     _display_text(value)
-                    for value in (result.get("rich_snippet") or {}).values()
+                    for value in rich_snippet.values()
                 ),
             )
             if part
         )
         rating_match = rating_pattern.search(text)
+        if not rating_match:
+            score = _extract_numeric_field(
+                rich_snippet,
+                {"tomatometer", "tomatometer_score", "rating", "score"},
+                100,
+            )
+            if score is not None:
+                return {"rating": score, "url": url}
         if rating_match:
             score = rating_match.group(1) or rating_match.group(2)
             score = float(score)

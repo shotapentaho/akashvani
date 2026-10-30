@@ -45,6 +45,10 @@ class MovieFetcherTests(unittest.TestCase):
         )
         self.assertEqual(extract_movie_title("Oppenheimer review"), "Oppenheimer")
         self.assertEqual(extract_movie_title("movie review"), "")
+        self.assertEqual(
+            extract_movie_title("Drishyam: The Conclusion movie"),
+            "Drishyam: The Conclusion",
+        )
 
     def test_parse_gemini_movie_ratings_from_grounded_answer(self):
         response_text = (
@@ -369,6 +373,34 @@ class MovieFetcherTests(unittest.TestCase):
             {
                 "rating": 83.0,
                 "url": "https://www.rottentomatoes.com/m/dune",
+            },
+        )
+
+    @patch("utils.movie_fetcher.requests.get")
+    def test_get_rotten_tomatoes_rating_from_nested_rich_snippet(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "organic_results": [
+                {
+                    "title": "Drishyam: The Conclusion | Rotten Tomatoes",
+                    "link": "https://www.rottentomatoes.com/m/drishyam_the_conclusion",
+                    "rich_snippet": {
+                        "top": {
+                            "detected_extensions": {
+                                "tomatometer": 83,
+                            },
+                        },
+                    },
+                },
+            ],
+        }
+        get.return_value = response
+
+        self.assertEqual(
+            get_rotten_tomatoes_rating("Drishyam: The Conclusion", "api-key"),
+            {
+                "rating": 83,
+                "url": "https://www.rottentomatoes.com/m/drishyam_the_conclusion",
             },
         )
 

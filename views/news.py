@@ -371,6 +371,7 @@ def render_news(
                                                     english_score_text,
                                                     language_code,
                                                     client,
+                                                    fallback_to_source=False,
                                                 )
                                             )
 
@@ -520,6 +521,7 @@ def render_news(
                                                     score_text,
                                                     language_code,
                                                     client,
+                                                    fallback_to_source=False,
                                                 )
                                             )
 
