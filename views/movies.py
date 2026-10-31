@@ -5,9 +5,7 @@ import streamlit as st
 from utils.movie_fetcher import (
     extract_movie_title,
     get_gemini_movie_ratings,
-    get_imdb_rating,
     get_imdb_reviews,
-    get_rotten_tomatoes_rating,
     get_rotten_tomatoes_reviews,
 )
 from utils.translator import (
@@ -103,75 +101,18 @@ def render_movie_reviews(
         else:
             st.info("No ratings were found in the grounded results.")
 
-    if not serpapi_enabled:
-        _render_primary_ratings(
-            None,
-            None,
-            gemini_ratings,
-            language_code,
-            client,
-        )
-        st.info(
-            "IMDb and Rotten Tomatoes scores use Gemini when available. "
-            "Review excerpts and YouTube videos require SerpAPI."
-        )
-        return
-
-    imdb_rating = None
-    try:
-        with st.spinner(f"🔎 Finding IMDb rating and movie details for '{movie_title}'..."):
-            imdb_rating = _cached_movie_rating(
-                movie_title,
-                "imdb",
-                lambda: get_imdb_rating(movie_title, serpapi_key),
-            )
-        record_api_call(
-            "serpapi_imdb_rating",
-            movie_title,
-            "success" if imdb_rating else "failure",
-            int(bool(imdb_rating)),
-        )
-    except Exception as e:
-        print(f"IMDb rating search error: {e}")
-        record_api_call("serpapi_imdb_rating", movie_title, "failure", 0)
-        st.warning("IMDb movie details are temporarily unavailable.")
-
-    rotten_tomatoes_rating = None
-    try:
-        with st.spinner(
-            f"🔎 Finding Rotten Tomatoes Tomatometer for '{movie_title}'..."
-        ):
-            rotten_tomatoes_rating = _cached_movie_rating(
-                movie_title,
-                "rotten_tomatoes",
-                lambda: get_rotten_tomatoes_rating(
-                    movie_title,
-                    serpapi_key,
-                ),
-            )
-        record_api_call(
-            "serpapi_rotten_tomatoes_rating",
-            movie_title,
-            "success" if rotten_tomatoes_rating else "failure",
-            int(bool(rotten_tomatoes_rating)),
-        )
-    except Exception as e:
-        print(f"Rotten Tomatoes rating search error: {e}")
-        record_api_call(
-            "serpapi_rotten_tomatoes_rating",
-            movie_title,
-            "failure",
-            0,
-        )
-        st.warning("The Rotten Tomatoes Tomatometer is temporarily unavailable.")
-
     _render_primary_ratings(
-        imdb_rating,
-        rotten_tomatoes_rating,
         gemini_ratings,
         language_code,
         client,
     )
+
+    if not serpapi_enabled:
+        st.info(
+            "Movie ratings use Gemini. Review excerpts and YouTube videos "
+            "require SerpAPI."
+        )
+        return
 
     youtube_videos = []
     try:
@@ -197,18 +138,6 @@ def render_movie_reviews(
         for index, video in enumerate(youtube_videos, start=1):
             st.markdown(f"**{video['title']}**")
             st.link_button(f"Watch on YouTube ({index})", video["url"])
-
-    if rotten_tomatoes_rating:
-        st.link_button("View on Rotten Tomatoes", rotten_tomatoes_rating["url"])
-    if imdb_rating:
-        for field, label in (
-            ("release_date", "Release Date"),
-            ("language", "Language"),
-            ("director", "Director"),
-            ("lead_cast", "Lead Cast"),
-        ):
-            if imdb_rating.get(field):
-                st.write(f"**{label}:** {imdb_rating[field]}")
 
     imdb_reviews = []
     try:
@@ -527,8 +456,6 @@ def _build_rating_summary(ratings, movie_title):
 
 
 def _render_primary_ratings(
-    imdb_rating,
-    rotten_tomatoes_rating,
     gemini_ratings,
     language_code,
     client,
@@ -550,15 +477,9 @@ def _render_primary_ratings(
         ),
         None,
     )
-    imdb_score = gemini_imdb_rating
-    if imdb_score is None:
-        imdb_score = (imdb_rating or {}).get("rating")
-    tomatometer_score = gemini_tomatometer
-    if tomatometer_score is None:
-        tomatometer_score = (rotten_tomatoes_rating or {}).get("rating")
     scores = (
-        ("IMDb rating (out of 10)", imdb_score),
-        ("Rotten Tomatoes Tomatometer (%)", tomatometer_score),
+        ("IMDb rating (out of 10)", gemini_imdb_rating),
+        ("Rotten Tomatoes Tomatometer (%)", gemini_tomatometer),
     )
     columns = st.columns(len(scores))
     for column, (label, score) in zip(columns, scores):
