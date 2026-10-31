@@ -19,7 +19,7 @@ def render_footer():
 
     st.caption("---")
 
-    col1, col2, col3 = st.columns([0.3, 0.4, 0.3])
+    col1, col2 = st.columns([0.3, 0.4])
 
     with col1:
         with st.expander("📋 Privacy Policy"):
@@ -30,14 +30,8 @@ def render_footer():
                 st.error("Privacy policy file not found.")
 
     with col2:
-        st.link_button(
-            "📱 Open in Google Play app",
-            "market://details?id=co.cxloop.akashvani",
-        )
-        st.link_button(
-            "🌐 Rate us in browser",
-            (
-                "https://play.google.com/store/apps/details?"
-                "id=co.cxloop.akashvani&showAllReviews=true"
-            ),
+        st.markdown(
+            '<a href="market://details?id=co.cxloop.akashvani" '
+            'target="_self">📱 Open in Google Play app</a>',
+            unsafe_allow_html=True,
         )
