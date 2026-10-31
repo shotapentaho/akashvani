@@ -117,10 +117,14 @@ def render_movie_reviews(
     youtube_videos = []
     try:
         with st.spinner(f"🔎 Finding YouTube videos for '{movie_title}'..."):
-            youtube_videos = get_youtube_search_results(
-                f"{movie_title} movie",
-                serpapi_key,
-                top_k=results_count,
+            youtube_videos = _cached_movie_rating(
+                movie_title,
+                "serpapi_youtube",
+                lambda: get_youtube_search_results(
+                    f'"{movie_title}" movie rating review',
+                    serpapi_key,
+                    top_k=results_count,
+                ),
             )
         record_api_call(
             "serpapi_movie_youtube",
