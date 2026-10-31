@@ -34,7 +34,7 @@ def render_footer():
         st.markdown(
             (
                 '<a href="https://play.google.com/store/apps/details?id='
-                'co.cxloop.akashvani&hl=en_US&pcampaignid=web_share" '
+                'co.cxloop.akashvani&hl=en_US&gl=US&desktop=1" '
                 'target="_blank" '
                 'rel="noopener noreferrer">'
                 "⭐⭐⭐⭐⭐ Rate us on Google Play"
