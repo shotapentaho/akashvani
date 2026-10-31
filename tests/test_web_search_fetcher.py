@@ -60,6 +60,7 @@ class WebSearchFetcherTests(unittest.TestCase):
 
         self.assertEqual(results[0]["source"], "YouTube")
         self.assertEqual(results[0]["url"], "https://www.youtube.com/watch?v=abc")
+        self.assertEqual(get.call_args.kwargs["params"]["tbm"], "vid")
 
 
 if __name__ == "__main__":
