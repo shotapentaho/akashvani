@@ -3,6 +3,9 @@ from pathlib import Path
 import streamlit as st
 
 
+PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=co.cxloop.akashvani"
+
+
 def render_footer():
     st.markdown("---")
 
@@ -30,8 +33,8 @@ def render_footer():
                 st.error("Privacy policy file not found.")
 
     with col2:
-        st.markdown(
-            '<a href="market://details?id=co.cxloop.akashvani" '
-            'target="_self">📱 Open in Google Play app</a>',
-            unsafe_allow_html=True,
+        st.link_button(
+            "📱 Open in Google Play",
+            PLAY_STORE_URL,
+            use_container_width=True,
         )
