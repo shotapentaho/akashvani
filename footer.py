@@ -32,6 +32,6 @@ def render_footer():
 
     with col2:
         st.link_button(
-            "⭐ Rate us on Google Play",
+            "⭐⭐⭐⭐⭐ Rate us on Google Play",
             "https://play.google.com/store/apps/details?id=co.cxloop.akashvani&hl=en_US",
         )
