@@ -15,7 +15,7 @@ def render_footer():
         st.caption("🤖 News-To-Speech your language of choice")
 
     with f3:
-        st.caption("☀️  Weather Forecast 🏏 Live Cricket Scores 🎬 movie ratings  ")
+        st.caption("☀️  Weather 🏏 Live Cricket Scores 🎬 movie ratings 🎵 songs ")
 
     st.caption("---")
 
