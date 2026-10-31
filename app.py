@@ -530,7 +530,7 @@ if auto_search or weather_selection_active:
         render_news(
             query, language_code, results_count, duration_key, duration_mode,
             speech_speed, voice_selection, use_ai_summary, selected_language,
-            client, news_api_key, gnews_api_key, gemini_api_key, serpapi_key,
+            client, news_api_key, gnews_api_key, serpapi_key,
             SERPAPI_ENABLED, DB_TRACKING_ENABLED, st.session_state.session_id,
             track_search_query, record_api_call,
         )

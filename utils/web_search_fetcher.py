@@ -120,6 +120,59 @@ def _serpapi_results(query: str, api_key: str, **params) -> List[Dict]:
     return payload.get("organic_results") or payload.get("video_results") or []
 
 
+def get_serpapi_news_results(
+    query: str,
+    api_key: str,
+    top_k: int = 5,
+) -> List[Dict]:
+    """Find current news articles through SerpAPI's Google News engine."""
+    if not query or not api_key:
+        return []
+
+    try:
+        response = requests.get(
+            SERPAPI_ENDPOINT,
+            params={
+                "engine": "google_news",
+                "q": query,
+                "api_key": api_key,
+                "gl": "in",
+                "hl": "en",
+                "num": max(1, min(top_k, 10)),
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError):
+        return []
+
+    articles = []
+    for result in payload.get("news_results") or []:
+        if not isinstance(result, dict):
+            continue
+        url = result.get("link") or result.get("url", "")
+        if not url:
+            continue
+        source = result.get("source") or {}
+        if isinstance(source, dict):
+            source_name = source.get("name", "SerpAPI News")
+        else:
+            source_name = str(source) or "SerpAPI News"
+        articles.append(
+            _article(
+                result.get("title", "News article"),
+                result.get("snippet", ""),
+                source_name,
+                url,
+                source_name,
+            )
+        )
+        if len(articles) >= top_k:
+            break
+    return articles
+
+
 def get_bbc_search_results(query: str, api_key: str, top_k: int = 5) -> List[Dict]:
     """Find BBC News article pages, including the current /news/articles/ path."""
     results = _serpapi_results(
