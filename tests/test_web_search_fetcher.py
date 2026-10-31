@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from utils.web_search_fetcher import (
     get_bbc_search_results,
     get_gemini_search_results,
+    get_serpapi_news_results,
     get_youtube_search_results,
 )
 
@@ -45,6 +46,27 @@ class WebSearchFetcherTests(unittest.TestCase):
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["source"], "BBC News")
+
+    @patch("utils.web_search_fetcher.requests.get")
+    def test_serpapi_returns_google_news_results(self, get):
+        response = Mock()
+        response.json.return_value = {
+            "news_results": [
+                {
+                    "title": "Trump News",
+                    "snippet": "Latest reporting.",
+                    "link": "https://example.com/trump",
+                    "source": {"name": "Example News"},
+                }
+            ]
+        }
+        get.return_value = response
+
+        results = get_serpapi_news_results("Trump News", "key")
+
+        self.assertEqual(results[0]["title"], "Trump News")
+        self.assertEqual(results[0]["source"], "Example News")
+        self.assertEqual(get.call_args.kwargs["params"]["engine"], "google_news")
 
     @patch("utils.web_search_fetcher.requests.get")
     def test_youtube_returns_video_results(self, get):

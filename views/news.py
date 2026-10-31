@@ -9,7 +9,6 @@ from utils.news_fetcher import (
     get_top_news,
 )
 from utils.translator import (
-    get_ai_search_result,
     get_ai_summary,
     translate_query_to_english,
     translate_to_language,
@@ -20,16 +19,14 @@ from utils.tts_handler import (
     text_to_speech,
 )
 from utils.web_search_fetcher import (
-    get_bbc_search_results,
-    get_gemini_search_results,
-    get_youtube_search_results,
+    get_serpapi_news_results,
 )
 
 
 def render_news(
     query, language_code, results_count, duration_key, duration_mode,
     speech_speed, voice_selection, use_ai_summary, selected_language, client,
-    news_api_key, gnews_api_key, gemini_api_key, serpapi_key, serpapi_enabled,
+    news_api_key, gnews_api_key, serpapi_key, serpapi_enabled,
     db_tracking_enabled, session_id, track_search_query, record_api_call,
 ):
             st.session_state.api_calls_today += 1
@@ -175,93 +172,28 @@ def render_news(
                     service_error = True
 
 
-            # ===== LIVE WEB SEARCH FALLBACK =====
+            # ===== SERPAPI NEWS FALLBACK =====
             if not articles:
-                web_articles = []
-                with st.spinner("🌐 Searching live web sources..."):
-                    if gemini_api_key:
-                        gemini_articles = get_gemini_search_results(
-                            news_query,
-                            gemini_api_key,
-                            results_count,
-                        )
-                        web_articles.extend(gemini_articles)
-                        try:
-                            record_api_call(
-                                "gemini",
-                                query,
-                                "success" if gemini_articles else "failure",
-                                len(gemini_articles),
-                            )
-                        except Exception as e:
-                            print(f"Tracking error: {e}")
-
-                    if serpapi_key:
-                        bbc_articles = get_bbc_search_results(
+                if serpapi_key:
+                    with st.spinner("🌐 Searching SerpAPI News..."):
+                        articles = get_serpapi_news_results(
                             news_query,
                             serpapi_key,
                             results_count,
                         )
-                        web_articles.extend(bbc_articles)
-                        try:
-                            record_api_call(
-                                "serpapi",
-                                query,
-                                "success" if bbc_articles else "failure",
-                                len(bbc_articles),
-                            )
-                        except Exception as e:
-                            print(f"Tracking error: {e}")
-
-                        youtube_articles = get_youtube_search_results(
-                            news_query,
-                            serpapi_key,
-                            results_count,
-                        )
-                        web_articles.extend(youtube_articles)
-                        try:
-                            record_api_call(
-                                "serpapi",
-                                query,
-                                "success" if youtube_articles else "failure",
-                                len(youtube_articles),
-                            )
-                        except Exception as e:
-                            print(f"Tracking error: {e}")
-
-                deduplicated = {}
-                for article in web_articles:
-                    key = article.get("url") or article.get("title")
-                    if key and key != "#" and key not in deduplicated:
-                        deduplicated[key] = article
-                articles = list(deduplicated.values())[:results_count]
-
-                if articles:
-                    api_used = "Live web search"
-                    service_error = False
-
-            # ===== OPENAI FALLBACK =====
-            if not articles:
-                with st.spinner("🤖 Searching with AI..."):
-                    articles = get_ai_search_result(news_query, client)
-
-                if articles:
-                    api_used = "OpenAI"
-                    service_error = False
-                    st.info(
-                        "🤖 No recent articles were found. "
-                        "Here is an OpenAI-generated answer based on available knowledge."
-                    )
-
                     try:
                         record_api_call(
-                            "openai",
+                            "serpapi",
                             query,
-                            "success",
+                            "success" if articles else "failure",
                             len(articles),
                         )
                     except Exception as e:
                         print(f"Tracking error: {e}")
+
+                if articles:
+                    api_used = "SerpAPI"
+                    service_error = False
 
             # ===== NO RESULTS =====
             if not articles:

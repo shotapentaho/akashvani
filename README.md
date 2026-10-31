@@ -16,8 +16,8 @@
 - Real-time news from 30+ trusted Indian and international sources
 - Dual API system (NewsAPI + GNews) for 200 requests/day
 - Automatic fallback ensures zero downtime
-- Live fallback search through Gemini Google Search grounding, BBC News articles,
-  and YouTube when news APIs have no matching results
+- Live fallback search through SerpAPI Google News when news APIs have no
+  matching results
 - 2-day news filtering for latest updates only
 
 ### 🗣️ **12 Indian Languages Support**
@@ -80,9 +80,7 @@ api_key = "your-google-ai-api-key"
 
 Alternatively, set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in the deployment environment.
 
-For live web fallback search, configure the same Gemini key under `[gemini]`.
-The optional SerpAPI key enables BBC article discovery under
-`https://www.bbc.com/news/articles/` and YouTube video results:
+The optional SerpAPI key enables Google News fallback searches:
 
 ```toml
 [serpapi]
@@ -129,9 +127,7 @@ Try NewsAPI (100/day)
     ↓ (if 429 error)
 Try GNews (100/day)
     ↓ (if both fail)
-Try Gemini live search, BBC News articles, and YouTube
-    ↓ (if web search is unavailable)
-Use OpenAI only as the final fallback
+Try SerpAPI Google News
 
 ### **Support & Contact**
 ### **Get Help**
