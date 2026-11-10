@@ -97,6 +97,10 @@ def record_api_call(
     query_text: str,
     response_status: str,
     articles_count: int = 0,
+    language_of_choice: str = None,
+    voice_speed: str = None,
+    voice_gender: str = None,
+    voice_duration: str = None,
 ):
     if track_api_call is None:
         print(
@@ -104,7 +108,33 @@ def record_api_call(
             "could not be loaded"
         )
         return
-    track_api_call(api_name, query_text, response_status, articles_count)
+    context = st.session_state
+    track_api_call(
+        api_name,
+        query_text,
+        response_status,
+        articles_count,
+        language_of_choice=(
+            language_of_choice
+            if language_of_choice is not None
+            else context.get("language_of_choice")
+        ),
+        voice_speed=(
+            voice_speed
+            if voice_speed is not None
+            else context.get("voice_speed")
+        ),
+        voice_gender=(
+            voice_gender
+            if voice_gender is not None
+            else context.get("voice_gender")
+        ),
+        voice_duration=(
+            voice_duration
+            if voice_duration is not None
+            else context.get("voice_duration")
+        ),
+    )
 
 
 # ===== HIDE DEFAULT STREAMLIT ELEMENTS =====
@@ -408,6 +438,11 @@ with st.container():
         }
 
         duration_key = duration_map.get(duration_mode, "standard")
+
+    st.session_state.language_of_choice = selected_language
+    st.session_state.voice_speed = speech_speed
+    st.session_state.voice_gender = voice_selection
+    st.session_state.voice_duration = duration_mode
 
     with col_articles:
         results_count = st.slider("Articles", 1, 10, 5)
