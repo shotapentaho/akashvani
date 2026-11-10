@@ -37,69 +37,26 @@ def render_news(
             news_query = translate_query_to_english(query, client)
             search_queries = news_query_variants(news_query)
 
-            # ===== TRY NEWSAPI FIRST =====
-            try:
-                with st.spinner(
-                    f"📡 Fetching news for '{query}'..."
-                ):
-                    for search_query in search_queries:
-                        articles.extend(
-                            get_top_news(
-                                search_query,
-                                news_api_key,
-                                top_k=results_count,
-                                show_no_results_warning=False,
-                            )
+            # ===== TRY SERPAPI FIRST =====
+            if serpapi_key:
+                try:
+                    with st.spinner("🌐 Searching SerpAPI News..."):
+                        articles = get_serpapi_news_results(
+                            news_query,
+                            serpapi_key,
+                            results_count,
                         )
-
-                    deduplicated = {}
-                    for article in articles:
-                        key = article.get("url") or article.get("title")
-                        if key and key not in deduplicated:
-                            deduplicated[key] = article
-                    articles = list(deduplicated.values())[:results_count]
-
-                if articles:
-                    api_used = "NewsAPI"
-
-                    try:
-                        record_api_call(
-                            "newsapi",
-                            query,
-                            "success",
-                            len(articles),
-                        )
-                    except Exception as e:
-                        print(f"Tracking error: {e}")
-
-                    if db_tracking_enabled:
-                        try:
-                            track_search_query(
-                                query,
-                                language_code,
-                                len(articles),
-                                "newsapi",
-                                duration_key,
-                                st.session_state.session_id,
-                            )
-
-                        except Exception as e:
-                            print(f"Tracking error: {e}")
-                else:
-                    try:
-                        record_api_call(
-                            "newsapi",
-                            query,
-                            "failure",
-                            0,
-                        )
-                    except Exception as e:
-                        print(f"Tracking error: {e}")
-
-            except Exception as e:
-                print(f"NewsAPI error: {e}")
-                service_error = True
-
+                    record_api_call(
+                        "serpapi",
+                        query,
+                        "success" if articles else "failure",
+                        len(articles),
+                    )
+                    if articles:
+                        api_used = "SerpAPI"
+                except Exception as e:
+                    print(f"SerpAPI error: {e}")
+                    service_error = True
 
             # ===== FALLBACK TO GNEWS =====
             if not articles and gnews_api_key:
@@ -172,18 +129,36 @@ def render_news(
                     service_error = True
 
 
-            # ===== SERPAPI NEWS FALLBACK =====
+            # ===== FINAL FALLBACK TO NEWSAPI =====
             if not articles:
-                if serpapi_key:
-                    with st.spinner("🌐 Searching SerpAPI News..."):
-                        articles = get_serpapi_news_results(
-                            news_query,
-                            serpapi_key,
-                            results_count,
-                        )
+                try:
+                    with st.spinner(
+                        f"📡 Fetching news for '{query}'..."
+                    ):
+                        for search_query in search_queries:
+                            articles.extend(
+                                get_top_news(
+                                    search_query,
+                                    news_api_key,
+                                    top_k=results_count,
+                                    show_no_results_warning=False,
+                                )
+                            )
+
+                        deduplicated = {}
+                        for article in articles:
+                            key = article.get("url") or article.get("title")
+                            if key and key not in deduplicated:
+                                deduplicated[key] = article
+                        articles = list(deduplicated.values())[:results_count]
+
+                    if articles:
+                        api_used = "NewsAPI"
+                    else:
+                        service_error = True
                     try:
                         record_api_call(
-                            "serpapi",
+                            "newsapi",
                             query,
                             "success" if articles else "failure",
                             len(articles),
@@ -191,9 +166,21 @@ def render_news(
                     except Exception as e:
                         print(f"Tracking error: {e}")
 
-                if articles:
-                    api_used = "SerpAPI"
-                    service_error = False
+                    if articles and db_tracking_enabled:
+                        try:
+                            track_search_query(
+                                query,
+                                language_code,
+                                len(articles),
+                                "newsapi",
+                                duration_key,
+                                st.session_state.session_id,
+                            )
+                        except Exception as e:
+                            print(f"Tracking error: {e}")
+                except Exception as e:
+                    print(f"NewsAPI error: {e}")
+                    service_error = True
 
             # ===== NO RESULTS =====
             if not articles:
