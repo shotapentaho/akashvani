@@ -80,7 +80,7 @@ api_key = "your-google-ai-api-key"
 
 Alternatively, set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in the deployment environment.
 
-The optional SerpAPI key enables Google News fallback searches:
+The optional SerpAPI key enables the primary Google News search:
 
 ```toml
 [serpapi]
@@ -123,11 +123,11 @@ akashvani/
 
 User Request
     ↓
-Try NewsAPI (100/day)
-    ↓ (if 429 error)
-Try GNews (100/day)
-    ↓ (if both fail)
 Try SerpAPI Google News
+    ↓ (if no results)
+Try GNews (100/day)
+    ↓ (if no results)
+Try NewsAPI (100/day)
 
 ### **Support & Contact**
 ### **Get Help**
