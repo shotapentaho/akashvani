@@ -303,6 +303,10 @@ def show_dashboard():
                         query_text,
                         response_status,
                         articles_count,
+                        language_of_choice,
+                        voice_speed,
+                        voice_gender,
+                        voice_duration,
                         call_timestamp
                     FROM public.api_calls
                     ORDER BY call_timestamp DESC
@@ -320,6 +324,10 @@ def show_dashboard():
                             "Query",
                             "Response Status",
                             "Articles",
+                            "Language",
+                            "Voice Speed",
+                            "Voice Gender",
+                            "Voice Duration",
                             "Call Timestamp",
                         ],
                     )

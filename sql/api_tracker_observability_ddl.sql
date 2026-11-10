@@ -24,7 +24,11 @@ CREATE TABLE api_calls (
     call_date DATE DEFAULT CURRENT_DATE,
     query_text TEXT,
     response_status VARCHAR(20),  -- 'success' or 'failure'
-    articles_count INTEGER DEFAULT 0
+    articles_count INTEGER DEFAULT 0,
+    language_of_choice VARCHAR(100),
+    voice_speed VARCHAR(50),
+    voice_gender VARCHAR(50),
+    voice_duration VARCHAR(50)
 );
 
 -- ===== TABLE 2: Search Queries (Insert-only) =====

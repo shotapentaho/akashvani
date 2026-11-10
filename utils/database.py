@@ -62,7 +62,16 @@ def get_supported_languages():
         conn.close()
 
 
-def track_api_call(api_name: str, query_text: str, response_status: str, articles_count: int = 0):
+def track_api_call(
+    api_name: str,
+    query_text: str,
+    response_status: str,
+    articles_count: int = 0,
+    language_of_choice: str = None,
+    voice_speed: str = None,
+    voice_gender: str = None,
+    voice_duration: str = None,
+):
     """Track API call in database (insert-only)"""
     try:
         conn = get_connection()
@@ -78,24 +87,30 @@ def track_api_call(api_name: str, query_text: str, response_status: str, article
         fields = ['api_name', 'query_text', 'response_status', 'articles_count']
         values = [api_name, query_text, response_status, articles_count]
         placeholders = ['%s', '%s', '%s', '%s']
+
+        metadata = {
+            'language_of_choice': language_of_choice,
+            'voice_speed': voice_speed,
+            'voice_gender': voice_gender,
+            'voice_duration': voice_duration,
+        }
+        for field, value in metadata.items():
+            if field in columns:
+                fields.append(field)
+                values.append(value)
+                placeholders.append('%s')
         
         # Add timestamp columns if they exist
         if 'call_date' in columns:
             fields.append('call_date')
-            values.append(None)  # Will use CURRENT_DATE
             placeholders.append('CURRENT_DATE')
         
         if 'call_timestamp' in columns:
             fields.append('call_timestamp')
-            values.append(None)  # Will use NOW()
             placeholders.append('NOW()')
         elif 'created_at' in columns:
             fields.append('created_at')
-            values.append(None)
             placeholders.append('NOW()')
-        
-        # Remove None values (for SQL functions)
-        values = [v for v in values if v is not None]
         
         # Build query
         query = f"""
