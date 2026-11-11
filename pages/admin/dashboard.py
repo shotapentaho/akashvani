@@ -65,7 +65,7 @@ def show_dashboard():
     # ===== POPULAR SEARCHES =====
     st.markdown("---")
     st.subheader("🔥 Popular Searches (Last 7 Days)")
-    search_df = pd.DataFrame(columns=['Query', 'Count', 'Last Searched'])
+    search_df = pd.DataFrame(columns=['Query', 'Date', 'Count', 'Total Count'])
     
     if DB_AVAILABLE:
         try:
@@ -73,17 +73,29 @@ def show_dashboard():
             if popular_conn:
                 cursor = popular_conn.cursor()
                 cursor.execute("""
-                    SELECT 
-                        query_text, 
-                        COUNT(*) as count,
-                        MAX(call_timestamp) as last_search
-                    FROM public.api_calls
-                    WHERE call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
-                      AND query_text IS NOT NULL
-                      AND BTRIM(query_text) <> ''
-                    GROUP BY query_text
-                    ORDER BY count DESC
-                    LIMIT 10
+                    WITH query_totals AS (
+                        SELECT
+                            LOWER(BTRIM(query_text)) AS query,
+                            COUNT(*) AS total_count
+                        FROM public.api_calls
+                        WHERE call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+                          AND query_text IS NOT NULL
+                          AND BTRIM(query_text) <> ''
+                        GROUP BY LOWER(BTRIM(query_text))
+                        ORDER BY total_count DESC
+                        LIMIT 10
+                    )
+                    SELECT
+                        totals.query,
+                        DATE(calls.call_timestamp) AS search_date,
+                        COUNT(*) AS count,
+                        totals.total_count
+                    FROM public.api_calls AS calls
+                    JOIN query_totals AS totals
+                      ON LOWER(BTRIM(calls.query_text)) = totals.query
+                    WHERE calls.call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+                    GROUP BY totals.query, search_date, totals.total_count
+                    ORDER BY totals.total_count DESC, totals.query, search_date
                 """)
                 
                 popular_searches = cursor.fetchall()
@@ -92,7 +104,7 @@ def show_dashboard():
                 
                 search_df = pd.DataFrame(
                     popular_searches,
-                    columns=['Query', 'Count', 'Last Searched']
+                    columns=['Query', 'Date', 'Count', 'Total Count']
                 )
         except Exception as e:
             print(f"Popular searches error: {e}")
@@ -108,9 +120,15 @@ def show_dashboard():
                 x=alt.X(
                     "Query:N",
                     axis=alt.Axis(labelAngle=-35, labelOverlap=False, labelLimit=0),
+                    sort=alt.SortField(field="Total Count", order="descending"),
                 ),
                 y=alt.Y("Count:Q"),
-                tooltip=["Query:N", "Count:Q"],
+                color=alt.Color(
+                    "Date:T",
+                    title="Date",
+                    scale=alt.Scale(scheme="dark2"),
+                ),
+                tooltip=["Query:N", "Date:T", "Count:Q", "Total Count:Q"],
             )
         )
         st.altair_chart(popular_search_chart, use_container_width=True)
