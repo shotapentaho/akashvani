@@ -123,7 +123,11 @@ def show_dashboard():
                     sort=alt.SortField(field="Total Count", order="descending"),
                 ),
                 y=alt.Y("Count:Q"),
-                color=alt.Color("Date:T", title="Date"),
+                color=alt.Color(
+                    "Date:T",
+                    title="Date",
+                    scale=alt.Scale(scheme="dark2"),
+                ),
                 tooltip=["Query:N", "Date:T", "Count:Q", "Total Count:Q"],
             )
         )
