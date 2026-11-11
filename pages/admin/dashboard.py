@@ -22,11 +22,11 @@ def show_dashboard():
         conn = get_connection()
         DB_AVAILABLE = conn is not None
         
-        if DB_AVAILABLE:
+        #if DB_AVAILABLE:
             #st.success("✅ Database Connected")
-        else:
-            st.warning("⚠️ Database connection failed - showing limited data")
-            DB_AVAILABLE = False
+        #else:
+            #st.warning("⚠️ Database connection failed - showing limited data")
+            #DB_AVAILABLE = False
             
     except Exception as e:
         st.warning(f"⚠️ Database not available - showing limited data")
