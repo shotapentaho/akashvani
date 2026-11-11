@@ -76,8 +76,10 @@ def show_dashboard():
                         query_text, 
                         COUNT(*) as count,
                         MAX(call_timestamp) as last_search
-                    FROM search_queries
-                    WHERE call_timestamp > NOW() - INTERVAL '7 days'
+                    FROM public.api_calls
+                    WHERE call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+                      AND query_text IS NOT NULL
+                      AND BTRIM(query_text) <> ''
                     GROUP BY query_text
                     ORDER BY count DESC
                     LIMIT 10
@@ -114,11 +116,13 @@ def show_dashboard():
                 cursor = lang_conn.cursor()
                 cursor.execute("""
                     SELECT 
-                        language_code,
+                        language_of_choice,
                         COUNT(*) as count
-                    FROM search_queries
-                    WHERE call_timestamp > NOW() - INTERVAL '7 days'
-                    GROUP BY language_code
+                    FROM public.api_calls
+                    WHERE call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+                      AND language_of_choice IS NOT NULL
+                      AND BTRIM(language_of_choice) <> ''
+                    GROUP BY language_of_choice
                     ORDER BY count DESC
                 """)
                 
