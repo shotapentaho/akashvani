@@ -124,9 +124,14 @@ def show_dashboard():
                 ),
                 y=alt.Y("Count:Q"),
                 color=alt.Color(
+                    "Query:N",
+                    title="Query",
+                    scale=alt.Scale(scheme="dark2"),
+                ),
+                opacity=alt.Opacity(
                     "Date:T",
                     title="Date",
-                    scale=alt.Scale(scheme="dark2"),
+                    scale=alt.Scale(range=[0.55, 1.0]),
                 ),
                 tooltip=["Query:N", "Date:T", "Count:Q", "Total Count:Q"],
             )
