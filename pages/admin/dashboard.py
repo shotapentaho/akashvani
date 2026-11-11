@@ -5,6 +5,7 @@ Real-time monitoring and usage statistics
 
 import streamlit as st
 import pandas as pd
+import altair as alt
 from datetime import datetime, date
 
 def show_dashboard():
@@ -100,7 +101,16 @@ def show_dashboard():
 
     chart_col, table_col = st.columns([2, 1])
     with chart_col:
-        st.bar_chart(search_df.set_index('Query')['Count'])
+        popular_search_chart = (
+            alt.Chart(search_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Query:N", axis=alt.Axis(labelAngle=-35)),
+                y=alt.Y("Count:Q"),
+                tooltip=["Query:N", "Count:Q"],
+            )
+        )
+        st.altair_chart(popular_search_chart, use_container_width=True)
     with table_col:
         st.dataframe(search_df, use_container_width=True, hide_index=True)
     
@@ -138,7 +148,16 @@ def show_dashboard():
 
     col_chart, col_table = st.columns([2, 1])
     with col_chart:
-        st.bar_chart(lang_df.set_index('Language'))
+        language_chart = (
+            alt.Chart(lang_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Language:N", axis=alt.Axis(labelAngle=-35)),
+                y=alt.Y("Searches:Q"),
+                tooltip=["Language:N", "Searches:Q"],
+            )
+        )
+        st.altair_chart(language_chart, use_container_width=True)
     with col_table:
         st.dataframe(lang_df, use_container_width=True, hide_index=True)
     
