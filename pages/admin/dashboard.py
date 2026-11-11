@@ -105,7 +105,10 @@ def show_dashboard():
             alt.Chart(search_df)
             .mark_bar()
             .encode(
-                x=alt.X("Query:N", axis=alt.Axis(labelAngle=-35)),
+                x=alt.X(
+                    "Query:N",
+                    axis=alt.Axis(labelAngle=-35, labelOverlap=False, labelLimit=0),
+                ),
                 y=alt.Y("Count:Q"),
                 tooltip=["Query:N", "Count:Q"],
             )
