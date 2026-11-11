@@ -5,7 +5,7 @@ Real-time monitoring and usage statistics
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 
 def show_dashboard():
     """Display analytics dashboard"""
@@ -32,185 +32,39 @@ def show_dashboard():
         print(f"Database error: {e}")
         DB_AVAILABLE = False
         conn = None
-    
-    # Initialize variables
-    newsapi_today = 0
-    gnews_today = 0
-    serpapi_today = 0
-    searches_today = 0
-    users_today = 0
-    
-    # ===== API USAGE SECTION =====
-    st.subheader("🔌 API Usage Monitor")
-    
+
+    newsapi_today = gnews_today = serpapi_today = 0
+    searches_today = users_today = 0
     if DB_AVAILABLE:
         try:
             cursor = conn.cursor()
-            
-            # Get all stats in one transaction
             cursor.execute("""
-                SELECT 
-                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'newsapi' AND DATE(call_timestamp) = CURRENT_DATE) as newsapi_count,
-                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'gnews' AND DATE(call_timestamp) = CURRENT_DATE) as gnews_count,
-                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'serpapi' AND DATE(call_timestamp) = CURRENT_DATE) as serpapi_count,
-                    (SELECT COUNT(*) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE) as searches_count,
-                    (SELECT COUNT(DISTINCT session_id) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE) as users_count
+                SELECT
+                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'newsapi' AND DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'gnews' AND DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'serpapi' AND DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(*) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(DISTINCT session_id) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE)
             """)
-            
             result = cursor.fetchone()
-            if result:
-                newsapi_today = result[0] or 0
-                gnews_today = result[1] or 0
-                serpapi_today = result[2] or 0
-                searches_today = result[3] or 0
-                users_today = result[4] or 0
-            
             cursor.close()
-            
+            if result:
+                newsapi_today, gnews_today, serpapi_today, searches_today, users_today = (
+                    value or 0 for value in result
+                )
         except Exception as e:
-            print(f"Query error: {e}")
-            # Rollback on error
-            if conn:
-                try:
-                    conn.rollback()
-                except:
-                    pass
-            newsapi_today = 0
-            gnews_today = 0
-            serpapi_today = 0
-            searches_today = 0
-            users_today = 0
-    else:
-        newsapi_today = st.session_state.get('api_calls_today', 0)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        newsapi_remaining = max(0, 100 - newsapi_today)
-        st.metric("NewsAPI", f"{newsapi_today}/100", f"{newsapi_remaining} left")
-        
-        if newsapi_remaining > 50:
-            st.success("🟢 Healthy")
-        elif newsapi_remaining > 10:
-            st.warning("🟡 Medium")
-        else:
-            st.error("🔴 Critical")
-        
-    with col2:
-        gnews_remaining = max(0, 100 - gnews_today)
-        st.metric("GNews Backup", f"{gnews_today}/100", f"{gnews_remaining} left")
-        
-        if gnews_today == 0:
-            st.info("⚪ Not Used")
-        elif gnews_remaining > 50:
-            st.success("🟢 Healthy")
-        elif gnews_remaining > 10:
-            st.warning("🟡 Medium")
-        else:
-            st.error("🔴 Critical")
-    
-    with col3:
-        st.metric("SerpAPI (Cricket)", f"{serpapi_today}/100", f"{100 - serpapi_today} left")
-        
-        if serpapi_today == 0:
-            st.info("⚪ Not Used")
-        elif serpapi_today < 50:
-            st.success("🟢 Healthy")
-        elif serpapi_today < 80:
-            st.warning("🟡 Medium")
-        else:
-            st.error("🔴 Critical")
-    
-    with col4:
-        now_utc = datetime.utcnow()
-        midnight_utc = (now_utc + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        time_until_reset = midnight_utc - now_utc
-        hours_left = time_until_reset.seconds // 3600
-        minutes_left = (time_until_reset.seconds % 3600) // 60
-        st.metric("Quota Reset", f"{hours_left}h {minutes_left}m", "until midnight UTC")
-        st.caption(f"🕐 UTC: {now_utc.strftime('%H:%M:%S')}")
-    
-    # Progress bars
-    st.markdown("---")
-    st.subheader("📈 API Quota Usage")
-    
-    col_progress1, col_progress2, col_progress3 = st.columns(3)
-    
-    with col_progress1:
-        st.markdown("**NewsAPI (Primary)**")
-        if newsapi_today <= 100:
-            st.progress(newsapi_today / 100)
-            st.caption(f"Used: {newsapi_today}/100 calls")
-        else:
-            st.progress(1.0)
-            st.caption("⚠️ Quota exhausted")
-    
-    with col_progress2:
-        st.markdown("**GNews (Backup)**")
-        if gnews_today > 0:
-            st.progress(min(gnews_today / 100, 1.0))
-            st.caption(f"Used: {gnews_today}/100 calls")
-        else:
-            st.progress(0.0)
-            st.caption("🟢 Ready as backup")
-    
-    with col_progress3:
-        st.markdown("**SerpAPI (Cricket)**")
-        if serpapi_today > 0:
-            st.progress(min(serpapi_today / 100, 1.0))
-            st.caption(f"Used: {serpapi_today}/100 calls")
-        else:
-            st.progress(0.0)
-            st.caption("🟢 Ready for cricket")
-    
-    # ===== REAL-TIME ANALYTICS =====
-    st.markdown("---")
-    st.subheader("📊 Real-Time Analytics")
-    
-    analytics_col1, analytics_col2, analytics_col3, analytics_col4 = st.columns(4)
-    
-    with analytics_col1:
-        st.metric("🔍 Searches Today", searches_today)
-    
-    with analytics_col2:
-        st.metric("👥 Unique Users", users_today)
-    
-    with analytics_col3:
-        if DB_AVAILABLE:
+            print(f"Dashboard stats error: {e}")
             try:
-                # Create new connection for this query
-                analytics_conn = get_connection()
-                if analytics_conn:
-                    cursor = analytics_conn.cursor()
-                    cursor.execute("""
-                        SELECT COUNT(*) 
-                        FROM search_queries 
-                        WHERE DATE(call_timestamp) = CURRENT_DATE - INTERVAL '1 day'
-                    """)
-                    yesterday_searches = cursor.fetchone()[0] or 0
-                    delta = searches_today - yesterday_searches
-                    st.metric("📈 vs Yesterday", f"{delta:+d}", f"{searches_today} today")
-                    cursor.close()
-                    analytics_conn.close()
-                else:
-                    st.metric("📈 vs Yesterday", "N/A")
-            except Exception as e:
-                print(f"Analytics error: {e}")
-                st.metric("📈 vs Yesterday", "N/A")
-        else:
-            st.metric("📈 vs Yesterday", "N/A")
-    
-    with analytics_col4:
-        total_api_calls = newsapi_today + gnews_today + serpapi_today
-        if searches_today > 0:
-            success_rate = (total_api_calls / searches_today) * 100
-            st.metric("✅ Success Rate", f"{success_rate:.1f}%")
-        else:
-            st.metric("✅ Success Rate", "N/A")
+                conn.rollback()
+            except Exception:
+                pass
+    else:
+        newsapi_today = st.session_state.get("api_calls_today", 0)
     
     # ===== POPULAR SEARCHES =====
     st.markdown("---")
-    st.subheader("🔥 Popular Searches (Last 24 Hours)")
+    st.subheader("🔥 Popular Searches (Last 7 Days)")
+    search_df = pd.DataFrame(columns=['Query', 'Count', 'Last Searched'])
     
     if DB_AVAILABLE:
         try:
@@ -223,7 +77,7 @@ def show_dashboard():
                         COUNT(*) as count,
                         MAX(call_timestamp) as last_search
                     FROM search_queries
-                    WHERE call_timestamp > NOW() - INTERVAL '24 hours'
+                    WHERE call_timestamp > NOW() - INTERVAL '7 days'
                     GROUP BY query_text
                     ORDER BY count DESC
                     LIMIT 10
@@ -233,23 +87,25 @@ def show_dashboard():
                 cursor.close()
                 popular_conn.close()
                 
-                if popular_searches:
-                    search_df = pd.DataFrame(
-                        popular_searches,
-                        columns=['Query', 'Count', 'Last Searched']
-                    )
-                    st.dataframe(search_df, use_container_width=True, hide_index=True)
-                else:
-                    st.info("No searches yet today")
+                search_df = pd.DataFrame(
+                    popular_searches,
+                    columns=['Query', 'Count', 'Last Searched']
+                )
         except Exception as e:
             print(f"Popular searches error: {e}")
-            st.info("Unable to load popular searches")
-    else:
-        st.info("Database connection required for this feature")
+    elif not DB_AVAILABLE:
+        st.info("Database connection required for popular search data")
+
+    chart_col, table_col = st.columns([2, 1])
+    with chart_col:
+        st.bar_chart(search_df.set_index('Query')['Count'])
+    with table_col:
+        st.dataframe(search_df, use_container_width=True, hide_index=True)
     
     # ===== LANGUAGE DISTRIBUTION =====
     st.markdown("---")
-    st.subheader("🌍 Language Distribution (Today)")
+    st.subheader("🌍 Language Distribution (Last 7 Days)")
+    lang_df = pd.DataFrame(columns=['Language', 'Searches'])
     
     if DB_AVAILABLE:
         try:
@@ -261,7 +117,7 @@ def show_dashboard():
                         language_code,
                         COUNT(*) as count
                     FROM search_queries
-                    WHERE DATE(call_timestamp) = CURRENT_DATE
+                    WHERE call_timestamp > NOW() - INTERVAL '7 days'
                     GROUP BY language_code
                     ORDER BY count DESC
                 """)
@@ -270,23 +126,17 @@ def show_dashboard():
                 cursor.close()
                 lang_conn.close()
                 
-                if lang_data:
-                    lang_df = pd.DataFrame(lang_data, columns=['Language', 'Searches'])
-                    
-                    col_chart, col_table = st.columns([2, 1])
-                    
-                    with col_chart:
-                        st.bar_chart(lang_df.set_index('Language'))
-                    
-                    with col_table:
-                        st.dataframe(lang_df, use_container_width=True, hide_index=True)
-                else:
-                    st.info("No data yet today")
+                lang_df = pd.DataFrame(lang_data, columns=['Language', 'Searches'])
         except Exception as e:
             print(f"Language distribution error: {e}")
-            st.info("Unable to load language data")
-    else:
-        st.info("Database connection required for this feature")
+    elif not DB_AVAILABLE:
+        st.info("Database connection required for language data")
+
+    col_chart, col_table = st.columns([2, 1])
+    with col_chart:
+        st.bar_chart(lang_df.set_index('Language'))
+    with col_table:
+        st.dataframe(lang_df, use_container_width=True, hide_index=True)
     
     # ===== RECENT API CALLS =====
     st.markdown("---")

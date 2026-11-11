@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 import os
 import sys
+from datetime import datetime, timedelta
 
 
 def diagnostics_have_failures():
@@ -41,11 +42,143 @@ def diagnostics_have_failures():
     return False
 
 
+def show_usage_monitor():
+    """Display API usage and real-time analytics."""
+    try:
+        from utils.database import get_connection
+
+        conn = get_connection()
+        db_available = conn is not None
+    except Exception as e:
+        print(f"Database error: {e}")
+        conn = None
+        db_available = False
+
+    newsapi_today = gnews_today = serpapi_today = 0
+    searches_today = users_today = 0
+
+    if db_available:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'newsapi' AND DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'gnews' AND DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'serpapi' AND DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(*) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE),
+                    (SELECT COUNT(DISTINCT session_id) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE)
+            """)
+            result = cursor.fetchone()
+            cursor.close()
+            if result:
+                newsapi_today, gnews_today, serpapi_today, searches_today, users_today = (
+                    value or 0 for value in result
+                )
+        except Exception as e:
+            print(f"Usage query error: {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    else:
+        newsapi_today = st.session_state.get("api_calls_today", 0)
+
+    st.subheader("🔌 API Usage Monitor")
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        remaining = max(0, 100 - newsapi_today)
+        st.metric("NewsAPI", f"{newsapi_today}/100", f"{remaining} left")
+        (st.success if remaining > 50 else st.warning if remaining > 10 else st.error)(
+            "🟢 Healthy" if remaining > 50 else "🟡 Medium" if remaining > 10 else "🔴 Critical"
+        )
+
+    with col2:
+        remaining = max(0, 100 - gnews_today)
+        st.metric("GNews Backup", f"{gnews_today}/100", f"{remaining} left")
+        if gnews_today == 0:
+            st.info("⚪ Not Used")
+        elif remaining > 50:
+            st.success("🟢 Healthy")
+        elif remaining > 10:
+            st.warning("🟡 Medium")
+        else:
+            st.error("🔴 Critical")
+
+    with col3:
+        st.metric("SerpAPI (Cricket)", f"{serpapi_today}/100", f"{100 - serpapi_today} left")
+        if serpapi_today == 0:
+            st.info("⚪ Not Used")
+        elif serpapi_today < 50:
+            st.success("🟢 Healthy")
+        elif serpapi_today < 80:
+            st.warning("🟡 Medium")
+        else:
+            st.error("🔴 Critical")
+
+    with col4:
+        now_utc = datetime.utcnow()
+        midnight_utc = (now_utc + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        time_until_reset = midnight_utc - now_utc
+        st.metric("Quota Reset", f"{time_until_reset.seconds // 3600}h {(time_until_reset.seconds % 3600) // 60}m", "until midnight UTC")
+        st.caption(f"🕐 UTC: {now_utc.strftime('%H:%M:%S')}")
+
+    st.markdown("---")
+    st.subheader("📈 API Quota Usage")
+    quota_columns = st.columns(3)
+    quota_data = [
+        ("NewsAPI (Primary)", newsapi_today, "⚠️ Quota exhausted", "🟢 Ready as primary"),
+        ("GNews (Backup)", gnews_today, "⚠️ Quota exhausted", "🟢 Ready as backup"),
+        ("SerpAPI (Cricket)", serpapi_today, "⚠️ Quota exhausted", "🟢 Ready for cricket"),
+    ]
+    for column, (label, used, exhausted, ready) in zip(quota_columns, quota_data):
+        with column:
+            st.markdown(f"**{label}**")
+            if used > 0:
+                st.progress(min(used / 100, 1.0))
+                st.caption(f"Used: {used}/100 calls" if used <= 100 else exhausted)
+            else:
+                st.progress(0.0)
+                st.caption(ready)
+
+    st.markdown("---")
+    st.subheader("📊 Real-Time Analytics")
+    analytics_columns = st.columns(4)
+    with analytics_columns[0]:
+        st.metric("🔍 Searches Today", searches_today)
+    with analytics_columns[1]:
+        st.metric("👥 Unique Users", users_today)
+    with analytics_columns[2]:
+        yesterday_searches = 0
+        if db_available:
+            try:
+                analytics_conn = get_connection()
+                if analytics_conn:
+                    cursor = analytics_conn.cursor()
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM search_queries
+                        WHERE DATE(call_timestamp) = CURRENT_DATE - INTERVAL '1 day'
+                    """)
+                    yesterday_searches = cursor.fetchone()[0] or 0
+                    cursor.close()
+                    analytics_conn.close()
+            except Exception as e:
+                print(f"Analytics error: {e}")
+        st.metric("📈 vs Yesterday", f"{searches_today - yesterday_searches:+d}", f"{searches_today} today")
+    with analytics_columns[3]:
+        total_api_calls = newsapi_today + gnews_today + serpapi_today
+        success_rate = (total_api_calls / searches_today * 100) if searches_today else 0
+        st.metric("✅ Success Rate", f"{success_rate:.1f}%" if searches_today else "N/A")
+
+
 def show_diagnostics():
     """Display system diagnostics"""
     
     st.header("🔍 System Diagnostics")
     st.markdown("Comprehensive system health check and troubleshooting")
+    st.markdown("---")
+    
+    show_usage_monitor()
     st.markdown("---")
     
     # Clear proxy vars
