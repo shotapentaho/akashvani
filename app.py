@@ -192,37 +192,82 @@ except Exception as e:
 st.markdown(
     """
     <style>
+    :root {
+        --ink: #17324d;
+        --muted: #587087;
+        --brand: #1769aa;
+        --brand-dark: #0f4f83;
+        --surface: #ffffff;
+        --surface-soft: #f3f8fc;
+        --border: #d9e5ee;
+        --shadow: 0 10px 30px rgba(23, 50, 77, 0.08);
+    }
+
     * {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
 
     body {
         font-size: 18px;
-        background-color: #f8f9fa;
+        background: #f4f8fb;
+        color: var(--ink);
+    }
+
+    .block-container {
+        max-width: 1440px;
+        padding: 2rem 3rem 3rem;
+    }
+
+    [data-testid="stHeader"] {
+        background: transparent;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 1.1rem 1.3rem;
+    }
+
+    hr {
+        border: 0;
+        border-top: 1px solid var(--border);
+        margin: 1.5rem 0;
     }
 
     .stButton>button {
         font-size: 18px;
+        min-height: 48px;
         padding: 12px 25px;
-        background-color: #FF6B6B;
+        background: linear-gradient(135deg, var(--brand), #2d8bc8);
         color: white;
-        border-radius: 8px;
+        border-radius: 10px;
         font-weight: bold;
         border: none;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
 
     .stButton>button:hover {
-        background-color: #FF5252;
-        box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+        background: linear-gradient(135deg, var(--brand-dark), var(--brand));
+        box-shadow: 0 6px 16px rgba(23, 105, 170, 0.28);
+        transform: translateY(-1px);
     }
 
     .stTextInput>div>div>input {
         font-size: 16px;
-        padding: 12px;
-        border-radius: 8px;
-        border: 2px solid #ddd;
+        min-height: 48px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: 0 2px 8px rgba(23, 50, 77, 0.04);
+    }
+
+    .stTextInput>div>div>input:focus {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px rgba(23, 105, 170, 0.12);
     }
 
     .stSelectbox>div>div>select,
@@ -231,24 +276,38 @@ st.markdown(
         font-size: 16px;
     }
 
+    [data-testid="stSelectSlider"] label,
+    [data-testid="stSlider"] label,
+    [data-testid="stSelectbox"] label,
+    [data-testid="stCheckbox"] label {
+        color: var(--ink);
+        font-weight: 600;
+    }
+
+    [data-testid="stSelectSlider"] [role="slider"],
+    [data-testid="stSlider"] [role="slider"] {
+        background: var(--brand);
+    }
+
     h1, h2, h3 {
-        color: #1F77B4;
+        color: var(--brand-dark);
         font-weight: 700;
     }
 
     .success-box {
-        background-color: #D4EDDA;
+        background-color: #e8f6ed;
         padding: 12px;
-        border-radius: 8px;
-        border-left: 5px solid #28a745;
-        color: #155724;
+        border-radius: 10px;
+        border-left: 5px solid #2e9d59;
+        color: #1d6338;
     }
 
     .header-tip {
-        background: #eef7ff;
-        border-left: 4px solid #1F77B4;
+        background: var(--surface-soft);
+        border: 1px solid #dcecf7;
+        border-left: 4px solid var(--brand);
         padding: 10px;
-        border-radius: 8px;
+        border-radius: 10px;
         font-size: 14px;
         line-height: 1.4;
         text-align: left;
@@ -289,6 +348,12 @@ st.markdown(
         font-size: 24px;
         font-weight: bold;
         color: #ffd700;
+    }
+
+    @media (max-width: 900px) {
+        .block-container {
+            padding: 1.25rem 1rem 2rem;
+        }
     }
     </style>
     """,
@@ -399,17 +464,18 @@ with st.container():
     )
 
     with col_speed:
-        speech_speed = st.radio(
+        speech_speed = st.select_slider(
             "Speed",
             ["Normal ⚡", "Slow 🐢"],
-            index=1,
+            value="Slow 🐢",
             help="Slow is recommended for seniors",
         )
 
     with col_voice:
-        voice_selection = st.radio(
+        voice_selection = st.select_slider(
             "Voice",
             VOICE_OPTIONS,
+            value=VOICE_OPTIONS[0],
             help="Choose a female or male Indian-accented voice.",
         )
 
