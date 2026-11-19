@@ -325,7 +325,7 @@ left_col, center_col, right_col = st.columns([2, 1, 2])
 
 with left_col:
     st.markdown("## 📻 akashvani 🇮🇳")
-    st.markdown("### News, Weather, Cricket and more: Spoken in your language")
+    st.markdown("### Spoken in your language: News, Weather, Cricket and more..")
     st.markdown("**News from Indian and International Trusted Sources**")
 
 
