@@ -386,7 +386,7 @@ if st.session_state.last_reset_date != date.today():
 
 
 # ===== HEADER =====
-left_col, center_col, right_col = st.columns([2, 1, 2])
+left_col, center_col = st.columns([2, 1])
 
 with left_col:
     st.markdown("## 📻 akashvani 🇮🇳")
@@ -424,12 +424,6 @@ with center_col:
         label_visibility="collapsed",
         help="Choose your preferred language for news reading",
     )
-
-
-with right_col:
-    st.markdown("")
-
-
 language_code = language_codes[selected_language]
 lang_info = get_language_info(language_code)
 
