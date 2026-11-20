@@ -63,9 +63,11 @@ INDIAN_MALE_VOICES = {
     "or": "or-IN-SukantNeural",
 }
 
-# Gemini's native-audio model supports multilingual speech, including Odia,
+# Gemini's native-audio models support multilingual speech, including Odia,
 # while gTTS does not.
-GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"
+GEMINI_TTS_MODEL = "gemini-3.8-flash-lite-tts"
+GEMINI_TTS_FALLBACK_MODEL = "gemini-3.8-flash-tts"
+GEMINI_TTS_MODELS = (GEMINI_TTS_MODEL, GEMINI_TTS_FALLBACK_MODEL)
 GEMINI_TTS_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     "{model}:generateContent"
@@ -341,12 +343,19 @@ def _try_gemini_fallback(
     voice: str,
     slow: bool,
 ) -> Optional[BytesIO]:
-    """Try Gemini only when an optional API key is configured."""
+    """Try Gemini models in order when an optional API key is configured."""
     api_key = _get_gemini_api_key()
     if not api_key:
         return None
-    model = os.getenv("GEMINI_TTS_MODEL", GEMINI_TTS_MODEL)
-    return _gemini_tts_audio(text, voice, slow, api_key, model)
+
+    last_error = None
+    for model in GEMINI_TTS_MODELS:
+        try:
+            return _gemini_tts_audio(text, voice, slow, api_key, model)
+        except (requests.RequestException, RuntimeError) as error:
+            last_error = error
+
+    raise last_error or RuntimeError("Gemini TTS request failed")
 
 
 def text_to_speech(
