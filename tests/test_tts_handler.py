@@ -14,6 +14,9 @@ from utils.tts_handler import (
     _gemini_tts_audio,
     _get_gemini_api_key,
     _split_gemini_text,
+    _try_gemini_fallback,
+    GEMINI_TTS_FALLBACK_MODEL,
+    GEMINI_TTS_MODEL,
     is_tts_available,
     text_to_speech,
 )
@@ -37,6 +40,23 @@ class GeminiApiKeyTests(unittest.TestCase):
 
 
 class GeminiAudioResponseTests(unittest.TestCase):
+    def test_tries_lite_model_before_full_model(self):
+        fallback_audio = BytesIO(b"fallback-audio")
+        with patch(
+            "utils.tts_handler._get_gemini_api_key",
+            return_value="key",
+        ), patch(
+            "utils.tts_handler._gemini_tts_audio",
+            side_effect=[RuntimeError("lite unavailable"), fallback_audio],
+        ) as gemini_audio:
+            audio = _try_gemini_fallback("ନମସ୍କାର", "Female", False)
+
+        self.assertIs(audio, fallback_audio)
+        self.assertEqual(
+            [call.args[-1] for call in gemini_audio.call_args_list],
+            [GEMINI_TTS_MODEL, GEMINI_TTS_FALLBACK_MODEL],
+        )
+
     def test_combines_audio_for_long_text(self):
         response = {
             "candidates": [{
