@@ -536,7 +536,7 @@ with st.container():
 
         st.caption(
             "Type a topic and pause for 2 seconds. Results appear automatically. "
-            "For weather, try: weather in Mumbai."
+            "For weather, specify a city and country, such as: weather in Mumbai, India."
         )
         st.caption(
             "For News, try: News around the world. or News from India or News from a particular state"
@@ -556,7 +556,7 @@ with st.container():
             placeholder=search_placeholder,
             help=(
                 "Type a topic and pause for 2 seconds. Results appear automatically. "
-                "For weather, try 'weather in Mumbai'."
+                "For weather, specify a city and country, such as 'weather in Mumbai, India'."
             ),
         )
 
