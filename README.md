@@ -4,7 +4,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Senior-Friendly News-to-Speech Application** delivering trusted news from Indian and international sources in 12 Indian languages with AI-powered summaries and text-to-speech capabilities.
+**Senior-Friendly News-to-Speech Application** delivering trusted news from Indian and international sources in 13 Indian languages with AI-powered summaries and text-to-speech capabilities.
 
 🔗 **Live Demo:** [https://akashvani.cxloop.co](https://akashvani.cxloop.co)
 
@@ -20,7 +20,7 @@
   matching results
 - 2-day news filtering for latest updates only
 
-### 🗣️ **12 Indian Languages Support**
+### 🗣️ **13 Indian Languages Support**
 | Language | Native Name | TTS Support |
 |----------|-------------|-------------|
 | English | English | ✅ |
@@ -35,6 +35,7 @@
 | Odia | ଓଡ଼ିଆ | ✅ |
 | Malayalam | മലയാളം | ✅ |
 | Punjabi | ਪੰਜਾਬੀ | ✅ |
+| Sanskrit | संस्कृत | ✅ |
 
 ### 🤖 **AI-Powered Features**
 - **Smart Summaries:** 1-3 minute audio briefs (150-450 words)
@@ -47,7 +48,7 @@
 - Supports all formats: Test, ODI, T20, IPL
 - Team detection: India, Pakistan, Australia, England, etc.
 - IPL team support: RCB, CSK, MI, KKR, and more
-- Spoken cricket scores in 12 languages
+- Spoken cricket scores in 13 languages
 
 ### 🎵 **Language Song Search**
 - Search for songs by language, artist, or title, such as “Malayalam songs”
@@ -68,7 +69,7 @@
 - Gemini `gemini-3.8-flash-tts` fallback for languages unavailable to gTTS
 - Two speed modes: Normal ⚡ and Slow 🐢
 - Voice choices: Female and Male, both with Indian accents
-- High-quality voice output for all 12 languages
+- High-quality voice output for all 13 languages
 - Optimized for senior citizens' listening comfort
 
 To enable the Gemini fallback, add a Google AI API key to Streamlit secrets:

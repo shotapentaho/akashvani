@@ -7,6 +7,7 @@ Auto-detects schema and adapts queries
 import psycopg2
 import streamlit as st
 from datetime import datetime
+from config.languages import INDIAN_LANGUAGES, LANGUAGE_INFO
 
 def get_connection():
     """
@@ -52,7 +53,17 @@ def get_supported_languages():
             FROM akashvani_languages
             ORDER BY sequence_id
         """)
-        return cursor.fetchall()
+        languages = cursor.fetchall()
+        configured_names = {language for language, _ in languages}
+        languages.extend(
+            (
+                language,
+                LANGUAGE_INFO.get(code, {}).get("native", language),
+            )
+            for language, code in INDIAN_LANGUAGES.items()
+            if language not in configured_names
+        )
+        return languages
     except Exception as e:
         print(f"❌ Language lookup error: {e}")
         return []

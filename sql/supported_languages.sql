@@ -16,4 +16,5 @@ INSERT INTO akashvani_languages (sequence_id, language, tts_language) VALUES
     (9, 'Kannada', 'ಕನ್ನಡ'),
     (10, 'Odia', 'ଓଡ଼ିଆ'),
     (11, 'Malayalam', 'മലയാളം'),
-    (12, 'Punjabi', 'ਪੰਜਾਬੀ');
+    (12, 'Punjabi', 'ਪੰਜਾਬੀ'),
+    (13, 'Sanskrit', 'संस्कृत');

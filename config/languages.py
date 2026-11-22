@@ -1,7 +1,7 @@
 # config/languages.py
 """
 akashvani - Language Configuration
-Supports 12 Indian languages with gTTS codes
+Supports 13 Indian languages with gTTS codes
 Note: Some languages may not have TTS support
 Project: akashvani | Version 1.0 | 2025-11-19
 """
@@ -19,6 +19,7 @@ INDIAN_LANGUAGES = {
     "Punjabi": "pa",
     "Urdu": "ur",
     "Odia": "or",
+    "Sanskrit": "sa",
 }
 
 LANGUAGE_NAMES = {
@@ -34,6 +35,7 @@ LANGUAGE_NAMES = {
     "pa": "Punjabi",
     "ur": "Urdu",
     "or": "Odia",
+    "sa": "Sanskrit",
 }
 
 # Languages supported by gTTS (Google Text-to-Speech)
@@ -50,6 +52,7 @@ TTS_SUPPORTED_LANGUAGES = {
     "gu",  # Gujarati
     "pa",  # Punjabi
     "ur",  # Urdu
+    "sa",  # Sanskrit
     # Note: "or" (Odia) is NOT currently supported by gTTS
 }
 
@@ -149,6 +152,14 @@ LANGUAGE_INFO = {
         "speakers": "42 Million",
         "region": "East India",
         "tts_supported": False,  # NOT supported by gTTS
+    },
+    "sa": {
+        "name": "Sanskrit",
+        "flag": "🇮🇳",
+        "native": "संस्कृत",
+        "speakers": "Limited",
+        "region": "Pan-India",
+        "tts_supported": True,
     },
 }
 
