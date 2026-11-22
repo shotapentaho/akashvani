@@ -7,6 +7,7 @@ import requests
 
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 
 _PREFIX = (
@@ -125,6 +126,13 @@ _WEATHER_CONDITIONS = {
 def get_weather_condition(weather_code: int | None) -> tuple[str, str]:
     """Return a friendly label and visual icon for a WMO weather code."""
     return _WEATHER_CONDITIONS.get(weather_code, ("Weather unavailable", "🌡️"))
+
+
+def _to_fahrenheit(temperature: float | int | None) -> float | None:
+    """Convert a Celsius temperature to Fahrenheit."""
+    if temperature is None:
+        return None
+    return round((temperature * 9 / 5) + 32, 1)
 
 
 def _clean_location(value: str) -> str | None:
@@ -326,12 +334,47 @@ def get_current_weather(location: str, place: dict | None = None):
     data = response.json()
     current = data.get("current") or {}
     daily = data.get("daily") or {}
+    air_quality_by_date = {}
+
+    try:
+        air_quality_response = requests.get(
+            AIR_QUALITY_URL,
+            params={
+                "latitude": place["latitude"],
+                "longitude": place["longitude"],
+                "hourly": "us_aqi",
+                "forecast_days": 3,
+                "timezone": "auto",
+            },
+            timeout=10,
+        )
+        air_quality_response.raise_for_status()
+        air_quality_data = air_quality_response.json()
+        air_quality_hourly = air_quality_data.get("hourly") or {}
+        daily_aqi_values = {}
+        for timestamp, aqi in zip(
+            air_quality_hourly.get("time") or [],
+            air_quality_hourly.get("us_aqi") or [],
+        ):
+            if aqi is not None:
+                date = str(timestamp).split("T", 1)[0]
+                daily_aqi_values.setdefault(date, []).append(aqi)
+        air_quality_by_date = {
+            date: max(values)
+            for date, values in daily_aqi_values.items()
+        }
+    except requests.RequestException as error:
+        print(f"Air quality error: {error}")
+
     forecast = [
         {
             "date": forecast_date,
             "temperature_max": temperature_max,
             "temperature_min": temperature_min,
+            "temperature_max_f": _to_fahrenheit(temperature_max),
+            "temperature_min_f": _to_fahrenheit(temperature_min),
             "weather_code": weather_code,
+            "air_quality_index": air_quality_by_date.get(forecast_date),
         }
         for forecast_date, temperature_max, temperature_min, weather_code in zip(
             daily.get("time") or [],
@@ -346,6 +389,7 @@ def get_current_weather(location: str, place: dict | None = None):
         "region": place.get("admin1", ""),
         "country": place.get("country", ""),
         "temperature": current.get("temperature_2m"),
+        "temperature_f": _to_fahrenheit(current.get("temperature_2m")),
         "apparent_temperature": current.get(
             "apparent_temperature"
         ),
