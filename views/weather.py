@@ -202,72 +202,47 @@ def render_weather(
         except Exception as e:
             print(f"Tracking error: {e}")
 
-        st.markdown("---")
-        st.write("**📝 Weather in English:**")
-        st.info(english_weather_text)
-
         slow_mode = speech_speed == "Slow 🐢"
 
         try:
-            st.write("**🔊 Listen in English:**")
+            st.markdown("---")
 
-            audio_en = text_to_speech(
-                english_weather_text,
-                "en",
+            if language_code == "en":
+                weather_text = english_weather_text
+            else:
+                with st.spinner(
+                    f"🌐 Translating to {selected_language}..."
+                ):
+                    weather_text = translate_to_language(
+                        english_weather_text,
+                        language_code,
+                        client,
+                        fallback_to_source=False,
+                    )
+
+            st.write(f"**📝 Weather in {selected_language}:**")
+            st.info(weather_text)
+
+            st.write(f"**🔊 Listen in {selected_language}:**")
+            audio = text_to_speech(
+                weather_text,
+                language_code,
                 slow=slow_mode,
                 voice=voice_selection,
             )
 
-            if audio_en:
-                st.audio(audio_en, format="audio/mp3")
+            if audio:
+                st.audio(audio, format="audio/mp3")
+            else:
+                st.info(
+                    f"Voice narration not available "
+                    f"for {selected_language}"
+                )
 
         except Exception as e:
-            print(f"English TTS error: {e}")
-
-        if language_code != "en":
-            st.markdown("---")
-
-            try:
-                with st.spinner(
-                    f"🌐 Translating to {selected_language}..."
-                ):
-                    translated_weather = translate_to_language(
-                        english_weather_text,
-                        language_code,
-                        client,
-                    )
-
-                st.write(
-                    f"**📝 Weather in {selected_language}:**"
-                )
-                st.success(translated_weather)
-
-                st.write(
-                    f"**🔊 Listen in {selected_language}:**"
-                )
-
-                audio_translated = text_to_speech(
-                    translated_weather,
-                    language_code,
-                    slow=slow_mode,
-                    voice=voice_selection,
-                )
-
-                if audio_translated:
-                    st.audio(
-                        audio_translated,
-                        format="audio/mp3",
-                    )
-                else:
-                    st.info(
-                        f"Voice narration not available "
-                        f"for {selected_language}"
-                    )
-
-            except Exception as e:
-                print(f"Translation/TTS error: {e}")
-                st.warning(
-                    "⚠️ Could not translate the weather. "
-                    "The English version is shown above."
-                )
+            print(f"Translation/TTS error: {e}")
+            st.warning(
+                f"⚠️ Could not prepare the weather in "
+                f"{selected_language}. Please try again."
+            )
 
