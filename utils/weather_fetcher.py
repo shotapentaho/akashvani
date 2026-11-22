@@ -270,6 +270,30 @@ def get_weather_locations(location: str) -> list[dict]:
     return list(unique.values())
 
 
+def is_country_location(location: str, places: list[dict]) -> bool:
+    """Return whether the geocoder identified the query as a country name."""
+    normalised_location = _normalise_place_part(location)
+    if not normalised_location:
+        return False
+
+    country_names = {
+        _normalise_place_part(alias)
+        for alias in _LOCATION_ALIASES.values()
+    }
+    country_names.add(normalised_location)
+
+    return any(
+        _normalise_place_part(str(place.get("country", ""))) in country_names
+        and (
+            _normalise_place_part(str(place.get("name", "")))
+            == _normalise_place_part(str(place.get("country", "")))
+            or _normalise_place_part(str(place.get("country", "")))
+            == normalised_location
+        )
+        for place in places
+    )
+
+
 def get_current_weather(location: str, place: dict | None = None):
     """Return current weather for a place or None if it is not found."""
     if not location:
