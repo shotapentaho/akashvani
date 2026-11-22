@@ -101,7 +101,22 @@ class CurrentWeatherTests(unittest.TestCase):
             },
             "timezone": "America/New_York",
         }
-        mock_get.side_effect = [geocode_response, forecast_response]
+        air_quality_response = Mock()
+        air_quality_response.json.return_value = {
+            "hourly": {
+                "time": [
+                    "2026-10-17T00:00",
+                    "2026-10-17T12:00",
+                    "2026-10-18T00:00",
+                ],
+                "us_aqi": [32, 45, 28],
+            },
+        }
+        mock_get.side_effect = [
+            geocode_response,
+            forecast_response,
+            air_quality_response,
+        ]
 
         weather = get_current_weather("Shrewsbury, MA")
 
@@ -116,6 +131,12 @@ class CurrentWeatherTests(unittest.TestCase):
         )
         self.assertEqual(len(weather["forecast"]), 3)
         self.assertEqual(weather["forecast"][1]["temperature_max"], 16)
+        self.assertEqual(weather["forecast"][0]["temperature_max_f"], 59.0)
+        self.assertEqual(weather["forecast"][0]["air_quality_index"], 45)
+        self.assertEqual(weather["forecast"][1]["air_quality_index"], 28)
+        self.assertEqual(weather["temperature_f"], 53.6)
+        air_quality_params = mock_get.call_args_list[2].kwargs["params"]
+        self.assertEqual(air_quality_params["hourly"], "us_aqi")
 
     @patch("utils.weather_fetcher.requests.get")
     def test_explicit_country_hint_selects_matching_geocode_result(self, mock_get):

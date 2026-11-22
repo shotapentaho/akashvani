@@ -126,6 +126,7 @@ def render_weather(
 
         unit = weather.get("unit") or "°C"
         temperature = weather["temperature"]
+        temperature_f = weather.get("temperature_f")
         feels_like = weather.get("apparent_temperature")
         condition_label, condition_icon = get_weather_condition(
             weather.get("weather_code")
@@ -142,7 +143,11 @@ def render_weather(
 
         st.metric(
             label="Temperature now",
-            value=f"{temperature}{unit}",
+            value=(
+                f"{temperature}{unit} / {temperature_f}°F"
+                if temperature_f is not None
+                else f"{temperature}{unit}"
+            ),
         )
 
         if feels_like is not None:
@@ -171,12 +176,19 @@ def render_weather(
                     )
                     st.metric(
                         "High",
-                        f"{forecast_day['temperature_max']}{unit}",
+                        f"{forecast_day['temperature_max']}{unit} / "
+                        f"{forecast_day.get('temperature_max_f')}°F",
                     )
                     st.metric(
                         "Low",
-                        f"{forecast_day['temperature_min']}{unit}",
+                        f"{forecast_day['temperature_min']}{unit} / "
+                        f"{forecast_day.get('temperature_min_f')}°F",
                     )
+                    if forecast_day.get("air_quality_index") is not None:
+                        st.metric(
+                            "Air quality index",
+                            str(forecast_day["air_quality_index"]),
+                        )
 
         if weather.get("timestamp"):
             timezone = weather.get("timezone", "")
@@ -192,6 +204,11 @@ def render_weather(
             f"is {temperature} degrees Celsius"
         )
 
+        if temperature_f is not None:
+            english_weather_text += (
+                f" ({temperature_f} degrees Fahrenheit)"
+            )
+
         if feels_like is not None:
             english_weather_text += (
                 f", and it feels like "
@@ -199,6 +216,30 @@ def render_weather(
             )
 
         english_weather_text += "."
+
+        if forecast:
+            english_weather_text += " The three-day forecast is: "
+            forecast_sentences = []
+            for forecast_day in forecast:
+                forecast_label, _ = get_weather_condition(
+                    forecast_day.get("weather_code")
+                )
+                forecast_sentence = (
+                    f"On {forecast_day['date']}, the high will be "
+                    f"{forecast_day['temperature_max']} degrees Celsius "
+                    f"({forecast_day['temperature_max_f']} degrees "
+                    f"Fahrenheit), and the low will be "
+                    f"{forecast_day['temperature_min']} degrees Celsius "
+                    f"({forecast_day['temperature_min_f']} degrees "
+                    f"Fahrenheit), with {forecast_label.lower()} conditions"
+                )
+                if forecast_day.get("air_quality_index") is not None:
+                    forecast_sentence += (
+                        f" and an air quality index of "
+                        f"{forecast_day['air_quality_index']}"
+                    )
+                forecast_sentences.append(forecast_sentence)
+            english_weather_text += ". ".join(forecast_sentences) + "."
 
         try:
             record_api_call(
