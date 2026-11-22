@@ -9,6 +9,7 @@ from utils.weather_fetcher import (
     get_weather_condition,
     get_current_weather,
     get_weather_locations,
+    is_country_location,
 )
 
 
@@ -156,6 +157,23 @@ class CurrentWeatherTests(unittest.TestCase):
 
         self.assertEqual(len(places), 1)
         self.assertEqual(places[0]["name"], "Sambalpur")
+
+    def test_country_name_is_identified_without_treating_results_as_city_options(self):
+        places = [
+            {
+                "name": "India",
+                "country": "India",
+                "country_code": "IN",
+            },
+            {
+                "name": "London",
+                "country": "United Kingdom",
+                "country_code": "GB",
+            },
+        ]
+
+        self.assertTrue(is_country_location("India", places))
+        self.assertFalse(is_country_location("London", places))
 
 
 if __name__ == "__main__":

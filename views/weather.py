@@ -7,6 +7,7 @@ from utils.weather_fetcher import (
     get_current_weather,
     get_weather_condition,
     get_weather_locations,
+    is_country_location,
 )
 
 
@@ -25,7 +26,13 @@ def render_weather(
         ):
             weather_places = get_weather_locations(weather_location)
 
-        if len(weather_places) > 1:
+        if is_country_location(weather_location, weather_places):
+            st.info(
+                f"'{weather_location}' is a country. "
+                "Please enter a city in that country to get the weather."
+            )
+            weather_selection_pending = True
+        elif len(weather_places) > 1:
             st.session_state.weather_selection_query = query
             st.warning(
                 f"Several places named '{weather_location}' were found. "
@@ -36,34 +43,35 @@ def render_weather(
             )
             selected_place = st.session_state.get(selection_key)
 
-            for row_start in range(0, len(weather_places), 3):
-                row_places = weather_places[row_start:row_start + 3]
-                columns = st.columns(3)
-                for column, place_index in zip(
-                    columns,
-                    range(row_start, row_start + len(row_places)),
-                ):
-                    place = weather_places[place_index]
-                    place_name = place.get("name") or weather_location
-                    place_region = place.get("admin1")
-                    place_country = place.get("country")
-                    place_details = ", ".join(
-                        str(part)
-                        for part in [place_region, place_country]
-                        if part
-                    )
-                    tile_label = f"📍 {place_name}"
-                    if place_details:
-                        tile_label += f"\n{place_details}"
+            if not selected_place:
+                for row_start in range(0, len(weather_places), 3):
+                    row_places = weather_places[row_start:row_start + 3]
+                    columns = st.columns(3)
+                    for column, place_index in zip(
+                        columns,
+                        range(row_start, row_start + len(row_places)),
+                    ):
+                        place = weather_places[place_index]
+                        place_name = place.get("name") or weather_location
+                        place_region = place.get("admin1")
+                        place_country = place.get("country")
+                        place_details = ", ".join(
+                            str(part)
+                            for part in [place_region, place_country]
+                            if part
+                        )
+                        tile_label = f"📍 {place_name}"
+                        if place_details:
+                            tile_label += f"\n{place_details}"
 
-                    with column:
-                        if st.button(
-                            tile_label,
-                            key=f"{selection_key}_{place_index}",
-                            use_container_width=True,
-                        ):
-                            st.session_state[selection_key] = place
-                            selected_place = place
+                        with column:
+                            if st.button(
+                                tile_label,
+                                key=f"{selection_key}_{place_index}",
+                                use_container_width=True,
+                            ):
+                                st.session_state[selection_key] = place
+                                selected_place = place
 
             if selected_place:
                 weather = get_current_weather(
