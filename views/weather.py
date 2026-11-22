@@ -11,6 +11,110 @@ from utils.weather_fetcher import (
 )
 
 
+def _get_aqi_display(aqi_value):
+    """Return the standard AQI category and visual position for an AQI value."""
+    aqi = float(aqi_value)
+    categories = [
+        (50, "Good", "#2e9d59"),
+        (100, "Moderate", "#d9a514"),
+        (150, "Unhealthy for sensitive groups", "#e87519"),
+        (200, "Unhealthy", "#d94b4b"),
+        (300, "Very unhealthy", "#8d4bb3"),
+    ]
+
+    for upper_bound, label, color in categories:
+        if aqi <= upper_bound:
+            break
+    else:
+        label, color = "Hazardous", "#7e1f3f"
+
+    return {
+        "value": int(aqi) if aqi.is_integer() else aqi,
+        "label": label,
+        "color": color,
+        "position": min(max(aqi, 0), 500) / 5,
+    }
+
+
+def _render_aqi_display(aqi_value):
+    display = _get_aqi_display(aqi_value)
+    value = display["value"]
+    label = display["label"]
+    color = display["color"]
+    position = display["position"]
+
+    st.markdown(
+        f"""
+        <div style="
+            border: 1px solid #d9e5ee;
+            border-radius: 12px;
+            padding: 0.75rem 0.85rem 0.7rem;
+            margin-top: 0.8rem;
+            background: linear-gradient(135deg, #ffffff, #f3f8fc);
+        ">
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 0.5rem;
+            ">
+                <span style="font-size: 0.85rem; color: #587087;">
+                    Air quality index
+                </span>
+                <strong style="font-size: 1.35rem; color: {color};">
+                    {value}
+                </strong>
+            </div>
+            <div style="
+                color: {color};
+                font-weight: 700;
+                font-size: 0.95rem;
+                margin: 0.1rem 0 0.55rem;
+            ">
+                {label}
+            </div>
+            <div style="
+                position: relative;
+                height: 10px;
+                border-radius: 999px;
+                background: linear-gradient(
+                    to right,
+                    #2e9d59 0% 10%,
+                    #d9a514 10% 20%,
+                    #e87519 20% 30%,
+                    #d94b4b 30% 40%,
+                    #8d4bb3 40% 60%,
+                    #7e1f3f 60% 100%
+                );
+            ">
+                <span style="
+                    position: absolute;
+                    left: calc({position}% - 6px);
+                    top: -4px;
+                    width: 12px;
+                    height: 18px;
+                    border: 2px solid #17324d;
+                    border-radius: 5px;
+                    background: #ffffff;
+                    box-sizing: border-box;
+                "></span>
+            </div>
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                color: #587087;
+                font-size: 0.7rem;
+                margin-top: 0.25rem;
+            ">
+                <span>Good</span>
+                <span>Hazardous</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_weather(
     query, language_code, selected_language, speech_speed, voice_selection,
     client, record_api_call,
@@ -185,9 +289,8 @@ def render_weather(
                         f"{forecast_day.get('temperature_min_f')}°F",
                     )
                     if forecast_day.get("air_quality_index") is not None:
-                        st.metric(
-                            "Air quality index",
-                            str(forecast_day["air_quality_index"]),
+                        _render_aqi_display(
+                            forecast_day["air_quality_index"]
                         )
 
         if weather.get("timestamp"):
