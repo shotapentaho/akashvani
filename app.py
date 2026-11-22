@@ -42,7 +42,7 @@ st.set_page_config(
     menu_items={
         "About": (
             "akashvani: News-to-Speech App for Senior Citizens | "
-            "12 Indian Languages | Version 1.4"
+            "13 Indian Languages | Version 1.4"
         )
     },
 )
