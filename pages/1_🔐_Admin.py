@@ -71,7 +71,7 @@ if not check_password():
 header_col1, header_col2 = st.columns([4, 1])
 with header_col1:
     st.title("🔐 Akashvani Admin Panel")
-    st.markdown("**System Diagnostics & Analytics Dashboard**")
+    st.markdown("**System Diagnostics & akashvani view**")
 with header_col2:
     st.markdown("")
     st.markdown("")
@@ -83,8 +83,8 @@ st.markdown("---")
 
 # ===== TABS =====
 tab_labels = [
-    "📊 Analytics Dashboard",
-    "📈 Charts",
+    "📊 akashvani view",
+    "📈 API Usage View",
     "🔍 System Diagnostics",
     "🧪 Test Suite",
 ]
