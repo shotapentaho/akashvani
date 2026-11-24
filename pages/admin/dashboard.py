@@ -369,17 +369,25 @@ def show_dashboard():
         if data["api_usage"].empty:
             st.info("No API calls in this date range.")
         else:
-            api_chart = (
-                alt.Chart(data["api_usage"])
-                .mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5)
-                .encode(
-                    x=alt.X("API Requests:Q", title="API requests"),
-                    y=alt.Y("API:N", sort="-x", title=None),
-                    color=alt.Color("API:N", legend=None),
-                    tooltip=["API:N", alt.Tooltip("API Requests:Q", title="API requests", format=",")],
-                )
-                .properties(height=220)
+            api_bars = alt.Chart(data["api_usage"]).mark_bar(
+                cornerRadiusTopLeft=5, cornerRadiusTopRight=5
+            ).encode(
+                x=alt.X("API Requests:Q", title="API requests"),
+                y=alt.Y("API:N", sort="-x", title=None),
+                color=alt.Color("API:N", legend=None),
+                tooltip=[
+                    "API:N",
+                    alt.Tooltip("API Requests:Q", title="API requests", format=","),
+                ],
             )
+            api_labels = alt.Chart(data["api_usage"]).mark_text(
+                align="left", baseline="middle", dx=4
+            ).encode(
+                x="API Requests:Q",
+                y=alt.Y("API:N", sort="-x"),
+                text=alt.Text("API Requests:Q", format=","),
+            )
+            api_chart = (api_bars + api_labels).properties(height=220)
             st.altair_chart(api_chart, use_container_width=True)
 
     with chart_col2:
@@ -387,17 +395,22 @@ def show_dashboard():
         if data["popular_searches"].empty:
             st.info("No search terms in this date range.")
         else:
-            search_chart = (
-                alt.Chart(data["popular_searches"])
-                .mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5)
-                .encode(
-                    x=alt.X("Searches:Q", title="Searches"),
-                    y=alt.Y("Query:N", sort="-x", title=None),
-                    color=alt.Color("Searches:Q", legend=None),
-                    tooltip=["Query:N", alt.Tooltip("Searches:Q", format=",")],
-                )
-                .properties(height=220)
+            search_bars = alt.Chart(data["popular_searches"]).mark_bar(
+                cornerRadiusTopLeft=5, cornerRadiusTopRight=5
+            ).encode(
+                x=alt.X("Searches:Q", title="Searches"),
+                y=alt.Y("Query:N", sort="-x", title=None),
+                color=alt.Color("Searches:Q", legend=None),
+                tooltip=["Query:N", alt.Tooltip("Searches:Q", format=",")],
             )
+            search_labels = alt.Chart(data["popular_searches"]).mark_text(
+                align="left", baseline="middle", dx=4
+            ).encode(
+                x="Searches:Q",
+                y=alt.Y("Query:N", sort="-x"),
+                text=alt.Text("Searches:Q", format=","),
+            )
+            search_chart = (search_bars + search_labels).properties(height=220)
             st.altair_chart(search_chart, use_container_width=True)
 
     lower_col1, lower_col2 = st.columns(2)
