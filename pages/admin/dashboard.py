@@ -98,20 +98,20 @@ def _load_dashboard_data(conn, start_date: date, end_date: date):
         )
         trend = pd.DataFrame(
             cursor.fetchall(),
-            columns=["Date", "Calls", "Successful", "Failed"],
+            columns=["Date", "API Requests", "Successful Requests", "Failed Requests"],
         )
 
         cursor.execute(
             f"""
-            SELECT api_name AS "API", COUNT(*) AS "Calls"
+            SELECT api_name AS "API", COUNT(*) AS "API Requests"
             FROM public.api_calls
             WHERE {api_date} BETWEEN %s AND %s
             GROUP BY api_name
-            ORDER BY "Calls" DESC
+            ORDER BY "API Requests" DESC
             """,
             (start_date, end_date),
         )
-        api_usage = pd.DataFrame(cursor.fetchall(), columns=["API", "Calls"])
+        api_usage = pd.DataFrame(cursor.fetchall(), columns=["API", "API Requests"])
 
         cursor.execute(
             f"""
@@ -250,9 +250,9 @@ def _normalise_trends(data, start_date: date, end_date: date):
         return pd.DataFrame(
             {
                 "Date": dates,
-                "Calls": 0,
-                "Successful": 0,
-                "Failed": 0,
+                "API Requests": 0,
+                "Successful Requests": 0,
+                "Failed Requests": 0,
                 "Searches": 0,
                 "Users": 0,
             }
@@ -267,7 +267,7 @@ def show_dashboard():
     today = date.today()
     default_start = _one_month_ago(today)
 
-    st.title("Analytics Dashboard")
+    st.title("akashvani view")
     st.caption("Monitor API usage, search activity, and platform health.")
 
     filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 1.2])
@@ -329,9 +329,9 @@ def show_dashboard():
     st.markdown("### Performance snapshot")
     metric_cols = st.columns(6)
     metrics = [
-        ("API calls", total_calls, "Selected period"),
-        ("Successful calls", successful_calls, f"{success_rate:.1f}% success rate"),
-        ("Failed calls", failed_calls, "Needs attention" if failed_calls else "No failures"),
+        ("API requests", total_calls, "Selected period"),
+        ("Successful requests", successful_calls, f"{success_rate:.1f}% success rate"),
+        ("Failed requests", failed_calls, "Needs attention" if failed_calls else "No failures"),
         ("Searches", searches, "Search activity"),
         ("Unique users", users, "Distinct sessions"),
         ("Articles", articles, "Articles returned"),
@@ -342,7 +342,7 @@ def show_dashboard():
     st.markdown("### Activity trends")
     trend_data = trend.melt(
         id_vars="Date",
-        value_vars=["Calls", "Searches"],
+        value_vars=["API Requests", "Searches"],
         var_name="Metric",
         value_name="Count",
     )
@@ -373,10 +373,10 @@ def show_dashboard():
                 alt.Chart(data["api_usage"])
                 .mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5)
                 .encode(
-                    x=alt.X("Calls:Q", title="Calls"),
+                    x=alt.X("API Requests:Q", title="API requests"),
                     y=alt.Y("API:N", sort="-x", title=None),
                     color=alt.Color("API:N", legend=None),
-                    tooltip=["API:N", alt.Tooltip("Calls:Q", format=",")],
+                    tooltip=["API:N", alt.Tooltip("API Requests:Q", title="API requests", format=",")],
                 )
                 .properties(height=220)
             )
@@ -413,9 +413,11 @@ def show_dashboard():
             )
     with lower_col2:
         st.markdown("### Daily success rate")
-        rate_data = trend[["Date", "Calls", "Successful"]].copy()
+        rate_data = trend[["Date", "API Requests", "Successful Requests"]].copy()
         rate_data["Success rate"] = (
-            rate_data["Successful"].div(rate_data["Calls"].replace(0, pd.NA)).fillna(0) * 100
+            rate_data["Successful Requests"].div(
+                rate_data["API Requests"].replace(0, pd.NA)
+            ).fillna(0) * 100
         )
         st.line_chart(
             rate_data.set_index("Date")[["Success rate"]],
