@@ -1,325 +1,440 @@
-"""
-Analytics Dashboard Module
-Real-time monitoring and usage statistics
-"""
+"""Professional, date-filtered analytics dashboard for the admin panel."""
 
-import streamlit as st
-import pandas as pd
+from calendar import monthrange
+from datetime import date, datetime
+
 import altair as alt
-from datetime import datetime, date
+import pandas as pd
+import streamlit as st
+
+
+def _one_month_ago(value: date) -> date:
+    """Return the same day in the previous calendar month when possible."""
+    year = value.year if value.month > 1 else value.year - 1
+    month = value.month - 1 if value.month > 1 else 12
+    return date(year, month, min(value.day, monthrange(year, month)[1]))
+
+
+def _date_series(start_date: date, end_date: date) -> pd.DatetimeIndex:
+    return pd.date_range(start=start_date, end=end_date, freq="D")
+
+
+def _empty_frame(columns):
+    return pd.DataFrame(columns=columns)
+
+
+def _load_dashboard_data(conn, start_date: date, end_date: date):
+    """Load all dashboard aggregates for the selected inclusive date range."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'api_calls'
+            """
+        )
+        api_columns = {row[0] for row in cursor.fetchall()}
+
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'search_queries'
+            """
+        )
+        search_columns = {row[0] for row in cursor.fetchall()}
+
+        api_date = "call_date" if "call_date" in api_columns else (
+            "DATE(call_timestamp)" if "call_timestamp" in api_columns
+            else "DATE(created_at)"
+        )
+        search_date = (
+            "created_at" if "created_at" in search_columns
+            else "call_timestamp" if "call_timestamp" in search_columns
+            else "call_date"
+        )
+        session_column = next(
+            (
+                column
+                for column in ("session_id", "user_session_id")
+                if column in search_columns
+            ),
+            None,
+        )
+        unique_users = (
+            f"COUNT(DISTINCT NULLIF({session_column}, ''))"
+            if session_column
+            else "0"
+        )
+
+        cursor.execute(
+            f"""
+            SELECT
+                COUNT(*) AS total_calls,
+                COUNT(*) FILTER (WHERE response_status = 'success') AS successful_calls,
+                COUNT(*) FILTER (WHERE response_status = 'failure') AS failed_calls,
+                COALESCE(SUM(articles_count), 0) AS articles
+            FROM public.api_calls
+            WHERE {api_date} BETWEEN %s AND %s
+            """,
+            (start_date, end_date),
+        )
+        totals = cursor.fetchone() or (0, 0, 0, 0)
+
+        cursor.execute(
+            f"""
+            SELECT
+                {api_date} AS day,
+                COUNT(*) AS calls,
+                COUNT(*) FILTER (WHERE response_status = 'success') AS successful_calls,
+                COUNT(*) FILTER (WHERE response_status = 'failure') AS failed_calls
+            FROM public.api_calls
+            WHERE {api_date} BETWEEN %s AND %s
+            GROUP BY day
+            ORDER BY day
+            """,
+            (start_date, end_date),
+        )
+        trend = pd.DataFrame(
+            cursor.fetchall(),
+            columns=["Date", "Calls", "Successful", "Failed"],
+        )
+
+        cursor.execute(
+            f"""
+            SELECT api_name AS "API", COUNT(*) AS "Calls"
+            FROM public.api_calls
+            WHERE {api_date} BETWEEN %s AND %s
+            GROUP BY api_name
+            ORDER BY "Calls" DESC
+            """,
+            (start_date, end_date),
+        )
+        api_usage = pd.DataFrame(cursor.fetchall(), columns=["API", "Calls"])
+
+        cursor.execute(
+            f"""
+            SELECT
+                LOWER(BTRIM(query_text)) AS "Query",
+                COUNT(*) AS "Searches"
+            FROM public.api_calls
+            WHERE {api_date} BETWEEN %s AND %s
+              AND query_text IS NOT NULL
+              AND BTRIM(query_text) <> ''
+            GROUP BY LOWER(BTRIM(query_text))
+            ORDER BY "Searches" DESC
+            LIMIT 10
+            """,
+            (start_date, end_date),
+        )
+        popular_searches = pd.DataFrame(
+            cursor.fetchall(), columns=["Query", "Searches"]
+        )
+
+        language_column = (
+            "language_of_choice" if "language_of_choice" in api_columns else None
+        )
+        if language_column:
+            cursor.execute(
+                f"""
+                SELECT BTRIM({language_column}) AS "Language", COUNT(*) AS "Searches"
+                FROM public.api_calls
+                WHERE {api_date} BETWEEN %s AND %s
+                  AND {language_column} IS NOT NULL
+                  AND BTRIM({language_column}) <> ''
+                GROUP BY BTRIM({language_column})
+                ORDER BY "Searches" DESC
+                """,
+                (start_date, end_date),
+            )
+            languages = pd.DataFrame(
+                cursor.fetchall(), columns=["Language", "Searches"]
+            )
+        else:
+            languages = _empty_frame(["Language", "Searches"])
+
+        cursor.execute(
+            f"""
+            SELECT
+                COUNT(*) AS searches,
+                {unique_users} AS users
+            FROM public.search_queries
+            WHERE DATE({search_date}) BETWEEN %s AND %s
+            """,
+            (start_date, end_date),
+        )
+        search_totals = cursor.fetchone() or (0, 0)
+
+        cursor.execute(
+            f"""
+            SELECT
+                {search_date}::date AS "Date",
+                COUNT(*) AS "Searches",
+                {unique_users} AS "Users"
+            FROM public.search_queries
+            WHERE DATE({search_date}) BETWEEN %s AND %s
+            GROUP BY "Date"
+            ORDER BY "Date"
+            """,
+            (start_date, end_date),
+        )
+        search_trend = pd.DataFrame(
+            cursor.fetchall(), columns=["Date", "Searches", "Users"]
+        )
+
+        timestamp_column = next(
+            (
+                column
+                for column in ("call_timestamp", "created_at")
+                if column in api_columns
+            ),
+            None,
+        )
+        detail_columns = [
+            "api_name",
+            "query_text",
+            "response_status",
+            "articles_count",
+            "language_of_choice",
+            timestamp_column or api_date,
+        ]
+        selected_detail_columns = [
+            column
+            for column in detail_columns
+            if column in api_columns or column == api_date
+        ]
+        detail_select = ", ".join(selected_detail_columns)
+        cursor.execute(
+            f"""
+            SELECT {detail_select}
+            FROM public.api_calls
+            WHERE {api_date} BETWEEN %s AND %s
+            ORDER BY {timestamp_column or api_date} DESC
+            LIMIT 500
+            """,
+            (start_date, end_date),
+        )
+        details = cursor.fetchall()
+        label_by_column = {
+            "api_name": "API",
+            "query_text": "Query",
+            "response_status": "Status",
+            "articles_count": "Articles",
+            "language_of_choice": "Language",
+            "call_timestamp": "Timestamp",
+            "created_at": "Timestamp",
+            api_date: "Date",
+        }
+        detail_labels = [label_by_column[column] for column in selected_detail_columns]
+        api_details = pd.DataFrame(details, columns=detail_labels)
+
+        return {
+            "totals": totals,
+            "search_totals": search_totals,
+            "trend": trend,
+            "search_trend": search_trend,
+            "api_usage": api_usage,
+            "popular_searches": popular_searches,
+            "languages": languages,
+            "api_details": api_details,
+        }
+    finally:
+        cursor.close()
+
+
+def _normalise_trends(data, start_date: date, end_date: date):
+    """Fill missing days so charts do not hide zero-activity dates."""
+    dates = _date_series(start_date, end_date)
+    if data.empty:
+        return pd.DataFrame(
+            {
+                "Date": dates,
+                "Calls": 0,
+                "Successful": 0,
+                "Failed": 0,
+                "Searches": 0,
+                "Users": 0,
+            }
+        )
+    data = data.copy()
+    data["Date"] = pd.to_datetime(data["Date"])
+    return data.set_index("Date").reindex(dates, fill_value=0).rename_axis("Date").reset_index()
+
 
 def show_dashboard():
-    """Display analytics dashboard"""
-    
-    st.header("📊 Analytics Dashboard")
-    st.markdown("Real-time monitoring and usage statistics")
-    st.markdown("---")
-    
-    # ===== CONNECT TO DATABASE =====
+    """Display the date-filtered analytics dashboard."""
+    today = date.today()
+    default_start = _one_month_ago(today)
+
+    st.title("Analytics Dashboard")
+    st.caption("Monitor API usage, search activity, and platform health.")
+
+    filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 1.2])
+    with filter_col1:
+        start_date = st.date_input(
+            "From",
+            value=default_start,
+            max_value=today,
+            key="analytics_from_date",
+        )
+    with filter_col2:
+        end_date = st.date_input(
+            "To",
+            value=today,
+            max_value=today,
+            key="analytics_to_date",
+        )
+    with filter_col3:
+        st.markdown("&nbsp;", unsafe_allow_html=True)
+        st.caption(f"Showing {start_date:%b %d, %Y} – {end_date:%b %d, %Y}")
+
+    if start_date > end_date:
+        st.error("The From date must be on or before the To date.")
+        return
+
     try:
         from utils.database import get_connection
-        
+
         conn = get_connection()
-        DB_AVAILABLE = conn is not None
-        
-        #if DB_AVAILABLE:
-            #st.success("✅ Database Connected")
-        #else:
-            #st.warning("⚠️ Database connection failed - showing limited data")
-            #DB_AVAILABLE = False
-            
-    except Exception as e:
-        st.warning(f"⚠️ Database not available - showing limited data")
-        print(f"Database error: {e}")
-        DB_AVAILABLE = False
-        conn = None
+    except Exception as exc:
+        st.error(f"Database connection failed: {exc}")
+        return
 
-    newsapi_today = gnews_today = serpapi_today = 0
-    searches_today = users_today = 0
-    if DB_AVAILABLE:
+    if conn is None:
+        st.info("Connect the database to view analytics for this date range.")
+        return
+
+    try:
+        data = _load_dashboard_data(conn, start_date, end_date)
+    except Exception as exc:
         try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT
-                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'newsapi' AND DATE(call_timestamp) = CURRENT_DATE),
-                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'gnews' AND DATE(call_timestamp) = CURRENT_DATE),
-                    (SELECT COUNT(*) FROM api_calls WHERE api_name = 'serpapi' AND DATE(call_timestamp) = CURRENT_DATE),
-                    (SELECT COUNT(*) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE),
-                    (SELECT COUNT(DISTINCT session_id) FROM search_queries WHERE DATE(call_timestamp) = CURRENT_DATE)
-            """)
-            result = cursor.fetchone()
-            cursor.close()
-            if result:
-                newsapi_today, gnews_today, serpapi_today, searches_today, users_today = (
-                    value or 0 for value in result
-                )
-        except Exception as e:
-            print(f"Dashboard stats error: {e}")
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-    else:
-        newsapi_today = st.session_state.get("api_calls_today", 0)
-    
-    # ===== POPULAR SEARCHES =====
-    st.markdown("---")
-    st.subheader("🔥 Popular Searches (Last 7 Days)")
-    search_df = pd.DataFrame(columns=['Query', 'Date', 'Count', 'Total Count'])
-    
-    if DB_AVAILABLE:
-        try:
-            popular_conn = get_connection()
-            if popular_conn:
-                cursor = popular_conn.cursor()
-                cursor.execute("""
-                    WITH query_totals AS (
-                        SELECT
-                            LOWER(BTRIM(query_text)) AS query,
-                            COUNT(*) AS total_count
-                        FROM public.api_calls
-                        WHERE call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
-                          AND query_text IS NOT NULL
-                          AND BTRIM(query_text) <> ''
-                        GROUP BY LOWER(BTRIM(query_text))
-                        ORDER BY total_count DESC
-                        LIMIT 10
-                    )
-                    SELECT
-                        totals.query,
-                        DATE(calls.call_timestamp) AS search_date,
-                        COUNT(*) AS count,
-                        totals.total_count
-                    FROM public.api_calls AS calls
-                    JOIN query_totals AS totals
-                      ON LOWER(BTRIM(calls.query_text)) = totals.query
-                    WHERE calls.call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
-                    GROUP BY totals.query, search_date, totals.total_count
-                    ORDER BY totals.total_count DESC, totals.query, search_date
-                """)
-                
-                popular_searches = cursor.fetchall()
-                cursor.close()
-                popular_conn.close()
-                
-                search_df = pd.DataFrame(
-                    popular_searches,
-                    columns=['Query', 'Date', 'Count', 'Total Count']
-                )
-        except Exception as e:
-            print(f"Popular searches error: {e}")
-    elif not DB_AVAILABLE:
-        st.info("Database connection required for popular search data")
-
-    chart_col, table_col = st.columns([2, 1])
-    with chart_col:
-        popular_search_chart = (
-            alt.Chart(search_df)
-            .mark_bar()
-            .encode(
-                x=alt.X(
-                    "Query:N",
-                    axis=alt.Axis(labelAngle=-35, labelOverlap=False, labelLimit=0),
-                    sort=alt.SortField(field="Total Count", order="descending"),
-                ),
-                y=alt.Y("Count:Q"),
-                color=alt.Color(
-                    "Query:N",
-                    title="Query",
-                    scale=alt.Scale(scheme="dark2"),
-                ),
-                opacity=alt.Opacity(
-                    "Date:T",
-                    title="Date",
-                    scale=alt.Scale(range=[0.55, 1.0]),
-                ),
-                tooltip=["Query:N", "Date:T", "Count:Q", "Total Count:Q"],
-            )
-        )
-        st.altair_chart(popular_search_chart, use_container_width=True)
-    with table_col:
-        st.dataframe(search_df, use_container_width=True, hide_index=True)
-    
-    # ===== LANGUAGE DISTRIBUTION =====
-    st.markdown("---")
-    st.subheader("🌍 Language Distribution (Last 7 Days)")
-    lang_df = pd.DataFrame(columns=['Language', 'Searches'])
-    
-    if DB_AVAILABLE:
-        try:
-            lang_conn = get_connection()
-            if lang_conn:
-                cursor = lang_conn.cursor()
-                cursor.execute("""
-                    SELECT 
-                        language_of_choice,
-                        COUNT(*) as count
-                    FROM public.api_calls
-                    WHERE call_timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
-                      AND language_of_choice IS NOT NULL
-                      AND BTRIM(language_of_choice) <> ''
-                    GROUP BY language_of_choice
-                    ORDER BY count DESC
-                """)
-                
-                lang_data = cursor.fetchall()
-                cursor.close()
-                lang_conn.close()
-                
-                lang_df = pd.DataFrame(lang_data, columns=['Language', 'Searches'])
-        except Exception as e:
-            print(f"Language distribution error: {e}")
-    elif not DB_AVAILABLE:
-        st.info("Database connection required for language data")
-
-    col_chart, col_table = st.columns([2, 1])
-    with col_chart:
-        language_chart = (
-            alt.Chart(lang_df)
-            .mark_bar()
-            .encode(
-                x=alt.X("Language:N", axis=alt.Axis(labelAngle=-35)),
-                y=alt.Y("Searches:Q"),
-                tooltip=["Language:N", "Searches:Q"],
-            )
-        )
-        st.altair_chart(language_chart, use_container_width=True)
-    with col_table:
-        st.dataframe(lang_df, use_container_width=True, hide_index=True)
-    
-    # ===== RECENT API CALLS =====
-    st.markdown("---")
-    st.subheader("🔄 API Calls")
-    
-    if DB_AVAILABLE:
-        try:
-            recent_conn = get_connection()
-            if recent_conn:
-                cursor = recent_conn.cursor()
-                cursor.execute("""
-                    SELECT
-                        api_name,
-                        query_text,
-                        response_status,
-                        articles_count,
-                        language_of_choice,
-                        voice_speed,
-                        voice_gender,
-                        voice_duration,
-                        call_timestamp
-                    FROM public.api_calls
-                    ORDER BY call_timestamp DESC
-                """)
-                
-                api_calls = cursor.fetchall()
-                cursor.close()
-                recent_conn.close()
-                
-                if api_calls:
-                    df_api = pd.DataFrame(
-                        api_calls,
-                        columns=[
-                            "API Name",
-                            "Query",
-                            "Response Status",
-                            "Articles",
-                            "Language",
-                            "Voice Speed",
-                            "Voice Gender",
-                            "Voice Duration",
-                            "Call Timestamp",
-                        ],
-                    )
-                    st.dataframe(df_api, use_container_width=True, height=300, hide_index=True)
-                else:
-                    st.info("No API calls recorded yet")
-        except Exception as e:
-            print(f"Recent API calls error: {e}")
-            st.info("Unable to load recent API calls")
-    else:
-        st.info("Database connection required for this feature")
-    
-    # ===== QUICK ACTIONS =====
-    st.markdown("---")
-    st.subheader("⚡ Quick Actions")
-    
-    action_col1, action_col2, action_col3 = st.columns(3)
-    
-    with action_col1:
-        if st.button("🔄 Refresh Data", type="secondary", use_container_width=True, key="refresh_btn"):
-            st.rerun()
-    
-    with action_col2:
-        if st.button("📋 Export Report", type="secondary", use_container_width=True, key="export_btn"):
-            total_api_calls = newsapi_today + gnews_today + serpapi_today
-            success_rate = ((total_api_calls) / max(searches_today, 1)) * 100
-            
-            report = f"""
-Akashvani API Usage Report
-Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
-
-API Usage Today:
-- NewsAPI: {newsapi_today}/100
-- GNews: {gnews_today}/100
-- SerpAPI: {serpapi_today}/100
-- Total: {total_api_calls}
-
-Analytics:
-- Searches Today: {searches_today}
-- Unique Users: {users_today}
-- Success Rate: {success_rate:.1f}%
-
-Database: {"Connected" if DB_AVAILABLE else "Disconnected"}
-            """
-            st.download_button(
-                label="⬇️ Download Report",
-                data=report,
-                file_name=f"akashvani_report_{date.today()}.txt",
-                mime="text/plain",
-                key="download_report"
-            )
-    
-    with action_col3:
-        if st.button("🗑️ Clear Cache", type="secondary", use_container_width=True, key="clear_cache_btn"):
-            st.cache_data.clear()
-            st.success("✅ Cache cleared")
-    
-    # ===== ALERTS =====
-    st.markdown("---")
-    st.subheader("🔔 Alerts & Notifications")
-    
-    newsapi_remaining = 100 - newsapi_today
-    gnews_remaining = 100 - gnews_today
-    serpapi_remaining = 100 - serpapi_today
-    
-    alerts = []
-    
-    if newsapi_remaining < 20:
-        alerts.append(("warning", f"⚠️ **Low NewsAPI Quota**: Only {newsapi_remaining} calls remaining"))
-    
-    if gnews_today > 80:
-        alerts.append(("error", "🚨 **Critical**: GNews backup quota almost exhausted!"))
-    
-    if serpapi_today > 80:
-        alerts.append(("warning", f"⚠️ **High SerpAPI Usage**: {serpapi_today}/100 calls used"))
-    
-    if not DB_AVAILABLE:
-        alerts.append(("warning", "⚠️ **Database Disconnected**: Analytics features limited."))
-    
-    if len(alerts) == 0:
-        st.success("✅ All systems normal. No alerts.")
-    else:
-        for alert_type, message in alerts:
-            if alert_type == "error":
-                st.error(message)
-            elif alert_type == "warning":
-                st.warning(message)
-            else:
-                st.info(message)
-    
-    # Close main connection if still open
-    if DB_AVAILABLE and conn:
-        try:
-            conn.close()
-        except:
+            conn.rollback()
+        except Exception:
             pass
+        st.error("Unable to load analytics for the selected date range.")
+        st.caption(str(exc))
+        return
+    finally:
+        conn.close()
+
+    total_calls, successful_calls, failed_calls, articles = data["totals"]
+    searches, users = data["search_totals"]
+    success_rate = (successful_calls / total_calls * 100) if total_calls else 0
+    trend = _normalise_trends(data["trend"], start_date, end_date)
+    search_trend = _normalise_trends(data["search_trend"], start_date, end_date)
+    trend["Searches"] = search_trend["Searches"]
+    trend["Users"] = search_trend["Users"]
+
+    st.markdown("### Performance snapshot")
+    metric_cols = st.columns(6)
+    metrics = [
+        ("API calls", total_calls, "Selected period"),
+        ("Successful calls", successful_calls, f"{success_rate:.1f}% success rate"),
+        ("Failed calls", failed_calls, "Needs attention" if failed_calls else "No failures"),
+        ("Searches", searches, "Search activity"),
+        ("Unique users", users, "Distinct sessions"),
+        ("Articles", articles, "Articles returned"),
+    ]
+    for column, (label, value, help_text) in zip(metric_cols, metrics):
+        column.metric(label, f"{value:,}", help=help_text)
+
+    st.markdown("### Activity trends")
+    trend_data = trend.melt(
+        id_vars="Date",
+        value_vars=["Calls", "Searches"],
+        var_name="Metric",
+        value_name="Count",
+    )
+    activity_chart = (
+        alt.Chart(trend_data)
+        .mark_line(point=True, strokeWidth=2)
+        .encode(
+            x=alt.X("Date:T", title=None),
+            y=alt.Y("Count:Q", title="Activity"),
+            color=alt.Color("Metric:N", title=None),
+            tooltip=[
+                alt.Tooltip("Date:T", title="Date"),
+                alt.Tooltip("Metric:N"),
+                alt.Tooltip("Count:Q", format=","),
+            ],
+        )
+        .properties(height=280)
+    )
+    st.altair_chart(activity_chart, use_container_width=True)
+
+    chart_col1, chart_col2 = st.columns(2)
+    with chart_col1:
+        st.markdown("### API usage")
+        if data["api_usage"].empty:
+            st.info("No API calls in this date range.")
+        else:
+            api_chart = (
+                alt.Chart(data["api_usage"])
+                .mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5)
+                .encode(
+                    x=alt.X("Calls:Q", title="Calls"),
+                    y=alt.Y("API:N", sort="-x", title=None),
+                    color=alt.Color("API:N", legend=None),
+                    tooltip=["API:N", alt.Tooltip("Calls:Q", format=",")],
+                )
+                .properties(height=220)
+            )
+            st.altair_chart(api_chart, use_container_width=True)
+
+    with chart_col2:
+        st.markdown("### Popular searches")
+        if data["popular_searches"].empty:
+            st.info("No search terms in this date range.")
+        else:
+            search_chart = (
+                alt.Chart(data["popular_searches"])
+                .mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5)
+                .encode(
+                    x=alt.X("Searches:Q", title="Searches"),
+                    y=alt.Y("Query:N", sort="-x", title=None),
+                    color=alt.Color("Searches:Q", legend=None),
+                    tooltip=["Query:N", alt.Tooltip("Searches:Q", format=",")],
+                )
+                .properties(height=220)
+            )
+            st.altair_chart(search_chart, use_container_width=True)
+
+    lower_col1, lower_col2 = st.columns(2)
+    with lower_col1:
+        st.markdown("### Language usage")
+        if data["languages"].empty:
+            st.info("No language data in this date range.")
+        else:
+            st.bar_chart(
+                data["languages"].set_index("Language"),
+                y="Searches",
+                use_container_width=True,
+            )
+    with lower_col2:
+        st.markdown("### Daily success rate")
+        rate_data = trend[["Date", "Calls", "Successful"]].copy()
+        rate_data["Success rate"] = (
+            rate_data["Successful"].div(rate_data["Calls"].replace(0, pd.NA)).fillna(0) * 100
+        )
+        st.line_chart(
+            rate_data.set_index("Date")[["Success rate"]],
+            y="Success rate",
+            use_container_width=True,
+        )
+
+    with st.expander("View API call details"):
+        if data["api_details"].empty:
+            st.info("No API calls in this date range.")
+        else:
+            st.dataframe(
+                data["api_details"],
+                use_container_width=True,
+                hide_index=True,
+                height=320,
+            )
+
+    st.caption(
+        f"Updated {datetime.utcnow():%Y-%m-%d %H:%M} UTC · "
+        f"Data range: {start_date:%Y-%m-%d} to {end_date:%Y-%m-%d}"
+    )
